@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Monitor</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #1b1f24;
+    --muted: #6b7480;
+    --line: #e3e6ea;
+    --good: #1a7f45;
+    --warn: #9a6700;
+    --bad: #b42318;
+    --accent: #2b5cd9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b; --panel: #1c2026; --ink: #e8eaed; --muted: #9aa4b0;
+      --line: #2b313a; --good: #4ec27f; --warn: #e0b341; --bad: #f2776b; --accent: #7ba1ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .card .value { font-size: 22px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .card .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  section { margin-top: 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 900px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; cursor: pointer; user-select: none; }
+  th[data-sort]:hover { color: var(--accent); }
+  th .arrow { opacity: .5; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.rejected td { opacity: .55; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .tag.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .tag.bad  { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .tag.mute { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
+  button {
+    font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spark { display: block; width: 100%; height: 120px; }
+  .muted { color: var(--muted); }
+  .banner {
+    background: color-mix(in srgb, var(--bad) 12%, transparent); border: 1px solid var(--bad);
+    color: var(--bad); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13.5px;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<h1>Flight Monitor</h1>
+<div class="sub" id="tripLine">carregando…</div>
+
+<div id="fixtureBanner" class="banner" hidden>
+  O provider <code>fixture</code> está ativo. Ele devolve <strong>dados simulados</strong>, não preços
+  reais. Desative-o antes de confiar em qualquer alerta.
+</div>
+
+<div class="grid" id="stats"></div>
+
+<section class="panel">
+  <div class="row">
+    <button class="primary" id="searchBtn">Buscar agora</button>
+    <button id="refreshBtn">Atualizar</button>
+    <label class="row" style="gap:6px">
+      <input type="checkbox" id="showRejected"> <span class="muted">mostrar rejeitadas</span>
+    </label>
+    <span class="muted" id="searchStatus"></span>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Histórico de preços (melhor oferta observada por dia)</h2>
+  <svg class="spark" id="chart" role="img" aria-label="Histórico de preços"></svg>
+  <div class="muted" id="chartNote"></div>
+</section>
+
+<section class="panel">
+  <h2>Ofertas</h2>
+  <div class="scroll">
+    <table id="offers">
+      <thead>
+        <tr>
+          <th data-sort="departureAt">Data</th>
+          <th data-sort="origin">Origem</th>
+          <th data-sort="destination">Destino</th>
+          <th data-sort="airlines">Companhias</th>
+          <th data-sort="outboundStops" class="num">Escalas</th>
+          <th data-sort="longestLegMinutes" class="num">Duração</th>
+          <th data-sort="currentPriceGbp" class="num">Preço</th>
+          <th data-sort="score" class="num">Score</th>
+          <th>Bagagem</th>
+          <th>Fonte</th>
+          <th>Situação</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Providers e filtro de rotas</h2>
+  <div id="providers"></div>
+</section>
+
+<script>
+const state = { offers: [], sort: { key: 'currentPriceGbp', dir: 1 }, showRejected: false };
+
+const gbp = v => v == null ? '—' :
+  '£' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+
+const dur = m => {
+  if (m == null) return '—';
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h}h ${r}min` : `${h}h`;
+};
+
+// Show the date printed on the ticket. `departureLocalDate` is stored in the airport's own local
+// time precisely because the instant fields come back from Postgres in UTC, and Date() would then
+// re-express them in the viewer's timezone on top of that — two chances to show the wrong day.
+const day = (localDate, isoFallback) => {
+  const source = localDate || (isoFallback ? isoFallback.slice(0, 10) : null);
+  if (!source) return '—';
+  const [y, m, d] = source.split('-');
+  return `${d}/${m}/${y}`;
+};
+
+function bandTag(offer) {
+  if (!offer.accepted) {
+    const why = (offer.rejectionReasons || 'rejeitada').split('(')[0];
+    return `<span class="tag bad" title="${esc(offer.rejectionReasons || '')}">${esc(why)}</span>`;
+  }
+  const map = {
+    EXCELLENT: ['good', 'excelente'],
+    WITHIN_BUDGET: ['warn', 'no orçamento'],
+    ABOVE_BUDGET: ['mute', 'acima']
+  };
+  const [cls, text] = map[offer.priceBand] || ['mute', '—'];
+  return `<span class="tag ${cls}">${text}</span>`;
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function load() {
+  const [status, offers, history] = await Promise.all([
+    fetch('/api/status').then(r => r.json()),
+    fetch('/api/offers?acceptedOnly=false&sort=recent&limit=200').then(r => r.json()),
+    fetch('/api/price-history?limit=2000').then(r => r.json())
+  ]);
+  state.offers = offers;
+  renderStatus(status);
+  renderOffers();
+  renderChart(history);
+}
+
+function renderStatus(status) {
+  const trip = status.trips[0];
+  document.getElementById('tripLine').textContent = trip
+    ? `${trip.name} · ${trip.origins.join('/')} → ${trip.destinations.join('/')} · ` +
+      `ida ${trip.departureWindow} · volta até ${trip.latestReturnArrival}`
+    : 'nenhuma viagem configurada';
+
+  const fixtureOn = status.providers.some(p => p.code === 'fixture' && p.available);
+  document.getElementById('fixtureBanner').hidden = !fixtureOn;
+
+  const nextRun = status.nextRunAt
+    ? new Date(status.nextRunAt).toLocaleString('pt-BR')
+    : 'scheduler desligado';
+
+  document.getElementById('stats').innerHTML = [
+    card('Melhor preço atual', gbp(trip?.currentBestPriceGbp),
+         `orçamento ${gbp(trip?.budgetMinGbp)}–${gbp(trip?.budgetMaxGbp)}`),
+    card('Menor histórico', gbp(trip?.allTimeLowGbp), 'desde o início do monitoramento'),
+    card('Ofertas aceitas', trip?.acceptedOffers ?? 0,
+         `${trip?.lastSearchRejected ?? 0} rejeitadas na última busca`),
+    card('Última busca', trip?.lastSearchAt ? new Date(trip.lastSearchAt).toLocaleString('pt-BR') : '—',
+         trip?.lastSearchStatus ?? ''),
+    card('Próxima busca', nextRun, `intervalo de ${status.intervalHours}h`),
+    card('Alertas enviados', trip?.alertsSent ?? 0,
+         status.notifications.configured ? 'Telegram configurado' : 'Telegram NÃO configurado')
+  ].join('');
+
+  document.getElementById('providers').innerHTML = `
+    <div class="scroll"><table><thead><tr>
+      <th>Provider</th><th>Estado</th><th>Detalhe de rota</th><th class="num">Chamadas no mês</th>
+    </tr></thead><tbody>
+      ${status.providers.map(p => `<tr>
+        <td>${esc(p.name)}</td>
+        <td>${p.available
+              ? '<span class="tag good">ativo</span>'
+              : '<span class="tag mute">sem chave / desligado</span>'}</td>
+        <td>${p.routeDetail === 'FULL_ITINERARY'
+              ? '<span class="tag good">itinerário completo</span>'
+              : '<span class="tag warn">só nº de escalas</span>'}</td>
+        <td class="num">${p.monthlyCap > 0
+              ? `${p.callsUsedThisMonth} / ${p.monthlyCap} (liberado: ${p.releasedSoFar})`
+              : 'sem limite'}</td>
+      </tr>`).join('')}
+    </tbody></table></div>
+    <p class="muted" style="margin-bottom:0">
+      Países bloqueados: <code>${esc((status.safety.blockedCountries || []).join(', ') || 'nenhum')}</code><br>
+      Aeroportos bloqueados: <code>${esc((status.safety.blockedAirports || []).join(', ') || 'nenhum')}</code><br>
+      Rotas sem conexões declaradas são ${status.safety.rejectUnverifiableRoutes
+        ? '<strong>rejeitadas</strong>' : 'aceitas'}; aeroportos desconhecidos são
+      ${status.safety.rejectUnknownAirports ? '<strong>rejeitados</strong>' : 'aceitos'}.
+    </p>`;
+}
+
+const card = (label, value, note) =>
+  `<div class="card"><div class="label">${esc(label)}</div>
+   <div class="value">${esc(value)}</div><div class="note">${esc(note ?? '')}</div></div>`;
+
+function renderOffers() {
+  const rows = state.offers
+    .filter(o => state.showRejected || o.accepted)
+    .sort((a, b) => {
+      const { key, dir } = state.sort;
+      const x = a[key], y = b[key];
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * dir;
+    });
+
+  document.querySelector('#offers tbody').innerHTML = rows.length ? rows.map(o => `
+    <tr class="${o.accepted ? '' : 'rejected'}">
+      <td>${day(o.departureLocalDate, o.departureAt)}${
+            o.returnDepartureLocalDate || o.returnDepartureAt
+              ? ' → ' + day(o.returnDepartureLocalDate, o.returnDepartureAt) : ''}</td>
+      <td>${esc(o.origin)}</td>
+      <td>${esc(o.destination)}</td>
+      <td>${esc((o.airlines || '—').replaceAll(',', ' + '))}</td>
+      <td class="num">${o.outboundStops}${o.inboundStops != null ? ' / ' + o.inboundStops : ''}</td>
+      <td class="num">${dur(o.longestLegMinutes)}</td>
+      <td class="num"><strong>${gbp(o.currentPriceGbp)}</strong></td>
+      <td class="num">${o.score == null ? '—' : Number(o.score).toFixed(1)}</td>
+      <td>${esc(o.baggage)}</td>
+      <td>${o.sources.map(s => s.bookingUrl
+            ? `<a href="${esc(s.bookingUrl)}" target="_blank" rel="noopener">${esc(s.provider)}</a>`
+            : s.searchUrl
+              ? `<a href="${esc(s.searchUrl)}" target="_blank" rel="noopener" title="link de busca, não de uma tarifa">${esc(s.provider)}*</a>`
+              : esc(s.provider)).join(', ')}</td>
+      <td>${bandTag(o)}</td>
+    </tr>`).join('')
+    : '<tr><td colspan="11" class="muted">Nenhuma oferta ainda. Rode uma busca.</td></tr>';
+}
+
+function renderChart(history) {
+  const svg = document.getElementById('chart');
+  const note = document.getElementById('chartNote');
+  if (!history.length) {
+    svg.innerHTML = '';
+    note.textContent = 'Sem histórico ainda — ele começa a existir a partir da segunda observação.';
+    return;
+  }
+
+  // One point per day: the cheapest price observed that day across all itineraries.
+  const byDay = new Map();
+  for (const point of history) {
+    const key = point.observedAt.slice(0, 10);
+    const price = Number(point.priceGbp);
+    byDay.set(key, Math.min(byDay.get(key) ?? Infinity, price));
+  }
+  const points = [...byDay.entries()].sort().map(([d, p]) => ({ d, p }));
+
+  const w = svg.clientWidth || 800, h = 120, pad = 24;
+  const min = Math.min(...points.map(p => p.p)), max = Math.max(...points.map(p => p.p));
+  const span = max - min || 1;
+  const x = i => pad + (points.length === 1 ? (w - 2 * pad) / 2
+                                            : i * (w - 2 * pad) / (points.length - 1));
+  const y = v => h - pad - ((v - min) / span) * (h - 2 * pad);
+
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.p).toFixed(1)}`).join(' ');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = `
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${points.map((p, i) =>
+      `<circle cx="${x(i).toFixed(1)}" cy="${y(p.p).toFixed(1)}" r="3" fill="var(--accent)">
+         <title>${p.d}: £${p.p}</title></circle>`).join('')}
+    <text x="${pad}" y="14" fill="var(--muted)" font-size="11">${gbp(max)}</text>
+    <text x="${pad}" y="${h - 6}" fill="var(--muted)" font-size="11">${gbp(min)}</text>`;
+  note.textContent = `${points.length} dia(s) observado(s), de ${points[0].d} a ${points.at(-1).d}.`;
+}
+
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 };
+    document.querySelectorAll('th[data-sort] .arrow').forEach(a => a.remove());
+    th.insertAdjacentHTML('beforeend',
+      `<span class="arrow"> ${state.sort.dir === 1 ? '▲' : '▼'}</span>`);
+    renderOffers();
+  });
+});
+
+document.getElementById('showRejected').addEventListener('change', e => {
+  state.showRejected = e.target.checked;
+  renderOffers();
+});
+
+document.getElementById('refreshBtn').addEventListener('click', load);
+
+document.getElementById('searchBtn').addEventListener('click', async e => {
+  const btn = e.target, status = document.getElementById('searchStatus');
+  btn.disabled = true;
+  status.textContent = 'buscando…';
+  try {
+    const res = await fetch('/api/search', { method: 'POST' });
+    const body = await res.json();
+    status.textContent = res.ok
+      ? `${body[0].offersFound} ofertas · ${body[0].offersRejected} rejeitadas · ` +
+        `${body[0].alertsSent} alerta(s)`
+      : (body.error || 'falhou');
+    await load();
+  } catch (err) {
+    status.textContent = 'erro: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+load();
+</script>
+</body>
+</html>

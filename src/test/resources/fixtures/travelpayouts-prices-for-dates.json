@@ -1,0 +1,50 @@
+{
+  "_comment": "Shape of GET /aviasales/v3/prices_for_dates. Note what is absent: the API reports a transfer COUNT and never names the connecting airports, which is why offers from this source are COUNTS_ONLY and cannot clear the blocked-country rule.",
+  "success": true,
+  "data": [
+    {
+      "origin": "HND",
+      "destination": "POA",
+      "origin_airport": "HND",
+      "destination_airport": "POA",
+      "price": 1412,
+      "airline": "NH",
+      "flight_number": "203",
+      "departure_at": "2027-01-09T09:55:00+09:00",
+      "return_at": "2027-01-21T06:10:00-03:00",
+      "transfers": 2,
+      "return_transfers": 2,
+      "duration": 3845,
+      "duration_to": 1870,
+      "duration_back": 1975,
+      "link": "/search/HND0901POA2101?t=NH203&marker=test"
+    },
+    {
+      "origin": "NRT",
+      "destination": "POA",
+      "origin_airport": "NRT",
+      "destination_airport": "POA",
+      "price": 1298,
+      "airline": "QR",
+      "flight_number": "807",
+      "departure_at": "2027-01-09T22:30:00+09:00",
+      "return_at": "2027-01-20T11:05:00-03:00",
+      "transfers": 2,
+      "return_transfers": 2,
+      "duration": 4100,
+      "duration_to": 2060,
+      "duration_back": 2040,
+      "link": "/search/NRT0901POA2001?t=QR807&marker=test"
+    },
+    {
+      "origin": "HND",
+      "destination": "POA",
+      "price": 1560,
+      "airline": "AF",
+      "departure_at": "2027-01-10T11:20:00+09:00",
+      "transfers": 1,
+      "duration_to": 1780
+    }
+  ],
+  "currency": "gbp"
+}

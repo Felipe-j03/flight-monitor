@@ -1,0 +1,228 @@
+# Reads .env when running outside Docker, so `mvn spring-boot:run` picks up exactly the same file
+# docker compose does. Without it the app would start with every default silently in place and a
+# filled-in .env would appear to do nothing.
+#
+# Excluded from the "test" profile on purpose: the suite runs from the project root, where a
+# developer's real .env sits. Importing it would make tests depend on whatever that person happens
+# to have configured — green locally, red in CI, and vice versa.
+#
+# Inside the container the file does not exist (it is never copied into the image) and the values
+# arrive as real environment variables, which take precedence anyway.
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: optional:file:./.env[.properties]
+
+---
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: flight-monitor
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/flightmonitor}
+    username: ${DATABASE_USER:flightmonitor}
+    password: ${DATABASE_PASSWORD:flightmonitor}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.flightmonitor: ${LOG_LEVEL:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%logger{28}] %msg%n"
+
+telegram:
+  enabled: ${TELEGRAM_ENABLED:true}
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  chat-id: ${TELEGRAM_CHAT_ID:}
+  api-base-url: ${TELEGRAM_API_BASE_URL:https://api.telegram.org}
+  timeout-seconds: 15
+
+flight-monitor:
+
+  # ---------------------------------------------------------------------------------------------
+  # TRIPS
+  # Everything about the journey lives here. Point this block somewhere else (Tokyo -> Paris, other
+  # dates, other budget) and the monitor follows, with no code change. Add more blocks to monitor
+  # several journeys at once; each is searched, stored and alerted on independently.
+  # ---------------------------------------------------------------------------------------------
+  trips:
+    - id: ${TRIP_ID:tokyo-poa-2027}
+      name: ${TRIP_NAME:Tokyo -> Porto Alegre (Jan 2027)}
+      enabled: true
+      origin-airports: ${ORIGIN_AIRPORTS:HND,NRT}
+      destination-airports: ${DESTINATION_AIRPORTS:POA,FLN,CWB,GRU}
+      # Anything outside this list is flagged as an alternative airport in the alert.
+      primary-destinations: ${PRIMARY_DESTINATIONS:POA}
+
+      target-departure-date: ${TARGET_DEPARTURE_DATE:2027-01-09}
+      departure-flex-days: ${DEPARTURE_FLEX_DAYS:2}
+      return-window-start: ${RETURN_WINDOW_START:2027-01-16}
+      return-window-end: ${RETURN_WINDOW_END:2027-01-21}
+
+      # HARD deadline for being physically back in Japan. Compared against the return leg's
+      # ARRIVAL instant, not its departure. Offset is explicit, so no timezone is ever assumed.
+      latest-return-arrival: ${LATEST_RETURN_ARRIVAL:2027-01-23T23:59:00+09:00}
+      # Arrivals inside this margin are accepted but flagged and scored lower.
+      minimum-return-buffer-hours: ${MINIMUM_RETURN_BUFFER_HOURS:12}
+
+      target-min-price-gbp: ${TARGET_MIN_PRICE_GBP:1300}
+      target-max-price-gbp: ${TARGET_MAX_PRICE_GBP:1500}
+
+      excellent-duration-hours: ${EXCELLENT_DURATION_HOURS:30}
+      max-preferred-duration-hours: ${MAX_PREFERRED_DURATION_HOURS:36}
+      long-duration-hours: ${LONG_DURATION_HOURS:42}
+      max-absolute-duration-hours: ${MAX_ABSOLUTE_DURATION_HOURS:48}
+
+      adults: ${ADULTS:1}
+      cabin-class: ${CABIN_CLASS:ECONOMY}
+
+  # ---------------------------------------------------------------------------------------------
+  # SAFETY / ROUTING PREFERENCE
+  #
+  # THIS IS A USER PREFERENCE, NOT A RISK ASSESSMENT.
+  # The application does not compute, infer or maintain any notion of which countries are "safe".
+  # It applies one mechanical rule: if a country or airport appears below, the itinerary is
+  # rejected — origin, destination, every connection, in both directions. Nothing else about this
+  # list is interpreted, and no other part of the code contains a country name.
+  #
+  # Edit freely. Countries are ISO 3166-1 alpha-2, airports are IATA.
+  # The default list reflects the preference stated when the monitor was set up: avoid connections
+  # in Arab-League countries. Add or remove entries to match your own judgement, for example:
+  #   IR (Iran), IL (Israel), RU (Russia), UA (Ukraine)
+  # ---------------------------------------------------------------------------------------------
+  safety:
+    blocked-countries: ${BLOCKED_COUNTRIES:QA,AE,SA,KW,BH,OM,JO,LB,SY,IQ,YE,EG,LY,SD,DZ,TN,MA}
+    # Specific airports to reject regardless of their country, e.g. DOH,DXB
+    blocked-airports: ${BLOCKED_AIRPORTS:}
+    # Fail closed: an offer whose connecting airports the source never disclosed cannot be checked,
+    # so it is rejected (ROUTE_UNVERIFIABLE). Set false to accept such offers and lose the guarantee.
+    reject-unverifiable-routes: ${REJECT_UNVERIFIABLE_ROUTES:true}
+    # Fail closed: an airport missing from airports.csv has no known country, so it is rejected.
+    reject-unknown-airports: ${REJECT_UNKNOWN_AIRPORTS:true}
+
+  # ---------------------------------------------------------------------------------------------
+  # ALERTS — anti-spam thresholds
+  # ---------------------------------------------------------------------------------------------
+  alerts:
+    min-price-drop-gbp: ${MIN_PRICE_DROP_GBP:30}
+    min-price-drop-percent: ${MIN_PRICE_DROP_PERCENT:3}
+    cooldown-hours: ${ALERT_COOLDOWN_HOURS:12}
+    notify-above-budget: ${NOTIFY_ABOVE_BUDGET:false}
+    notify-first-sighting: ${NOTIFY_FIRST_SIGHTING:true}
+    max-alerts-per-run: ${MAX_ALERTS_PER_RUN:5}
+    # An airport outside primary-destinations means a connecting flight, a bus or a night in
+    # another city. It only earns a message when it beats the best known primary-airport price by
+    # at least this much. Below the bar it is still stored and visible, just silent.
+    alternative-destination-min-saving-gbp: ${ALTERNATIVE_DESTINATION_MIN_SAVING_GBP:150}
+
+  # ---------------------------------------------------------------------------------------------
+  # RANKING WEIGHTS — each component is normalised to 0..1 and multiplied by its weight.
+  # Defaults sum to 100 so the score reads as a percentage. See OfferScorer for what each measures.
+  # ---------------------------------------------------------------------------------------------
+  scoring:
+    price-weight: ${SCORE_PRICE_WEIGHT:45}
+    duration-weight: ${SCORE_DURATION_WEIGHT:25}
+    stops-weight: ${SCORE_STOPS_WEIGHT:15}
+    baggage-weight: ${SCORE_BAGGAGE_WEIGHT:5}
+    date-weight: ${SCORE_DATE_WEIGHT:10}
+    max-stops-for-scoring: 4
+
+  search:
+    enabled: ${SEARCH_ENABLED:true}
+    interval-hours: ${SEARCH_INTERVAL_HOURS:12}
+    # The full cross product of airports and dates is far larger than any free tier can afford.
+    # The planner emits the most relevant combinations first and stops here.
+    max-queries-per-run: ${MAX_QUERIES_PER_RUN:12}
+    run-on-startup: ${RUN_ON_STARTUP:false}
+
+  currency:
+    base-currency: GBP
+    # Frankfurter serves ECB reference rates with no API key and no signup.
+    # There is no hardcoded fallback rate anywhere: a failed lookup skips the offer.
+    api-url: ${FX_API_URL:https://api.frankfurter.dev/v1}
+    cache-ttl-minutes: ${FX_CACHE_TTL_MINUTES:360}
+    timeout-seconds: 10
+
+  providers:
+
+    # Google Flights data. The only self-serve free source in 2026 that returns FULL itineraries
+    # with named connecting airports, which is what makes the blocked-country rule enforceable.
+    # A round-trip search costs TWO API calls (the return legs need a second call carrying the
+    # departure_token), and the budget guard below accounts for that.
+    serpapi:
+      enabled: ${SERPAPI_ENABLED:true}
+      base-url: https://serpapi.com
+      api-key: ${SERPAPI_KEY:}
+      timeout-seconds: 30
+      max-retries: 2
+      retry-backoff-millis: 1000
+      requests-per-minute: 10
+      max-queries-per-run: ${SERPAPI_MAX_QUERIES_PER_RUN:2}
+      # API CALLS per month, not searches. Free plans sit around 100-250; 90 is deliberately
+      # conservative and is released evenly across the month rather than all at once.
+      max-queries-per-month: ${SERPAPI_MAX_CALLS_PER_MONTH:230}
+      # How many of the cheapest outbound options get their return flights resolved. Each costs
+      # one extra call.
+      max-options-per-search: ${SERPAPI_MAX_OPTIONS:1}
+
+    # Aviasales fare cache. Free, self-serve, effectively unmetered — but it reports only a
+    # transfer COUNT, never the connecting airports, so its offers are ROUTE_UNVERIFIABLE and are
+    # rejected by default. They still populate the price history as a trend signal.
+    travelpayouts:
+      enabled: ${TRAVELPAYOUTS_ENABLED:true}
+      base-url: https://api.travelpayouts.com
+      api-key: ${TRAVELPAYOUTS_TOKEN:}
+      timeout-seconds: 20
+      max-retries: 2
+      retry-backoff-millis: 800
+      requests-per-minute: 30
+      max-queries-per-run: ${TRAVELPAYOUTS_MAX_QUERIES_PER_RUN:12}
+      max-queries-per-month: 0   # 0 = uncapped
+      max-options-per-search: 1
+
+    # Offline replay of a canned payload. SIMULATED DATA — never real prices. Off by default;
+    # switch on only to exercise the pipeline without API keys. Every alert it produces is
+    # stamped with a warning banner.
+    fixture:
+      enabled: ${FIXTURE_ENABLED:false}
+      base-url: ""
+      api-key: ""
+      timeout-seconds: 5
+      max-retries: 0
+      retry-backoff-millis: 100
+      requests-per-minute: 600
+      max-queries-per-run: 100
+      max-queries-per-month: 0
+      max-options-per-search: 1

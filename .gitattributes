@@ -1,0 +1,12 @@
+# Normaliza fim de linha no repositorio: LF sempre, independentemente do sistema de quem commita.
+* text=auto eol=lf
+
+# Estes rodam em Linux (runner do GitHub Actions, container Docker). Com CRLF o shell falha com
+# "$'\r': command not found", que e um erro obscuro e chato de diagnosticar.
+*.sh      text eol=lf
+Dockerfile text eol=lf
+
+# Binarios nao devem sofrer conversao alguma.
+*.jar binary
+*.png binary
+*.ico binary

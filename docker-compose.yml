@@ -1,0 +1,58 @@
+# Two containers, no more: the monitor and its database.
+#
+#   cp .env.example .env    # fill in your keys
+#   docker compose up -d
+#
+# Secrets come from .env, which is gitignored. Nothing sensitive lives in this file.
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: flight-monitor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-flightmonitor}
+      POSTGRES_USER: ${DATABASE_USER:-flightmonitor}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}
+    volumes:
+      # Named volume: the price history is the one thing here that cannot be regenerated.
+      - flight-monitor-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-flightmonitor} -d ${DATABASE_NAME:-flightmonitor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published to the host by default; only the app needs to reach it.
+    expose:
+      - "5432"
+
+  app:
+    build: .
+    container_name: flight-monitor
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${DATABASE_NAME:-flightmonitor}
+      DATABASE_USER: ${DATABASE_USER:-flightmonitor}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+      # Pinned, and deliberately overriding whatever .env says. Inside the container the port is
+      # fixed at 8080 so the healthcheck and the port mapping below cannot drift apart; SERVER_PORT
+      # from .env then means only "which host port to publish on".
+      SERVER_PORT: "8080"
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  flight-monitor-data:

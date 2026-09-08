@@ -1,0 +1,137 @@
+{
+  "_comment": [
+    "SIMULATED DATA - NOT REAL PRICES OR SCHEDULES.",
+    "Replayed by FixtureFlightProvider (disabled by default) so the full pipeline can be",
+    "exercised without any API key. The shape matches SerpApi's engine=google_flights response,",
+    "so the same parser is used and the parser itself is exercised too.",
+    "Two outbound options are included on purpose: one routing through Frankfurt (acceptable) and",
+    "a cheaper one through Doha, which the blocked-country rule must reject despite the price."
+  ],
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Tokyo Haneda", "id": "HND", "time": "2027-01-09 09:55"},
+          "arrival_airport": {"name": "Frankfurt", "id": "FRA", "time": "2027-01-09 15:20"},
+          "duration": 805,
+          "airplane": "Boeing 777-300ER",
+          "airline": "ANA",
+          "travel_class": "Economy",
+          "flight_number": "NH 203",
+          "extensions": ["1 checked bag included", "Carry-on bag included", "Average legroom (34 in)"]
+        },
+        {
+          "departure_airport": {"name": "Frankfurt", "id": "FRA", "time": "2027-01-09 17:30"},
+          "arrival_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-10 01:20"},
+          "duration": 710,
+          "airplane": "Airbus A340-600",
+          "airline": "Lufthansa",
+          "travel_class": "Economy",
+          "flight_number": "LH 500"
+        },
+        {
+          "departure_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-10 03:25"},
+          "arrival_airport": {"name": "Porto Alegre", "id": "POA", "time": "2027-01-10 05:05"},
+          "duration": 100,
+          "airplane": "Airbus A320",
+          "airline": "LATAM",
+          "travel_class": "Economy",
+          "flight_number": "LA 3082"
+        }
+      ],
+      "layovers": [
+        {"duration": 130, "name": "Frankfurt", "id": "FRA"},
+        {"duration": 125, "name": "Sao Paulo Guarulhos", "id": "GRU"}
+      ],
+      "total_duration": 1870,
+      "carbon_emissions": {"this_flight": 1420000, "typical_for_this_route": 1380000, "difference_percent": 3},
+      "price": 1387,
+      "type": "Round trip",
+      "departure_token": "FIXTURE_DEPARTURE_TOKEN_FRA",
+      "booking_token": "FIXTURE_BOOKING_TOKEN_FRA",
+      "extensions": ["1 checked bag included"]
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Tokyo Haneda", "id": "HND", "time": "2027-01-09 23:00"},
+          "arrival_airport": {"name": "Hamad International", "id": "DOH", "time": "2027-01-10 05:20"},
+          "duration": 740,
+          "airplane": "Boeing 777-300ER",
+          "airline": "Qatar Airways",
+          "travel_class": "Economy",
+          "flight_number": "QR 813"
+        },
+        {
+          "departure_airport": {"name": "Hamad International", "id": "DOH", "time": "2027-01-10 08:05"},
+          "arrival_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-10 16:10"},
+          "duration": 845,
+          "airplane": "Boeing 777-300ER",
+          "airline": "Qatar Airways",
+          "travel_class": "Economy",
+          "flight_number": "QR 773"
+        },
+        {
+          "departure_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-10 19:40"},
+          "arrival_airport": {"name": "Porto Alegre", "id": "POA", "time": "2027-01-10 21:20"},
+          "duration": 100,
+          "airplane": "Airbus A320",
+          "airline": "LATAM",
+          "travel_class": "Economy",
+          "flight_number": "LA 3094"
+        }
+      ],
+      "layovers": [
+        {"duration": 165, "name": "Hamad International", "id": "DOH"},
+        {"duration": 210, "name": "Sao Paulo Guarulhos", "id": "GRU"}
+      ],
+      "total_duration": 2060,
+      "price": 1250,
+      "type": "Round trip",
+      "departure_token": "FIXTURE_DEPARTURE_TOKEN_DOH",
+      "booking_token": "FIXTURE_BOOKING_TOKEN_DOH"
+    }
+  ],
+  "other_flights": [],
+  "return_flights_fixture": {
+    "best_flights": [
+      {
+        "flights": [
+          {
+            "departure_airport": {"name": "Porto Alegre", "id": "POA", "time": "2027-01-21 06:10"},
+            "arrival_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-21 07:55"},
+            "duration": 105,
+            "airline": "LATAM",
+            "travel_class": "Economy",
+            "flight_number": "LA 3081"
+          },
+          {
+            "departure_airport": {"name": "Sao Paulo Guarulhos", "id": "GRU", "time": "2027-01-21 11:00"},
+            "arrival_airport": {"name": "Frankfurt", "id": "FRA", "time": "2027-01-22 04:35"},
+            "duration": 815,
+            "airline": "Lufthansa",
+            "travel_class": "Economy",
+            "flight_number": "LH 507"
+          },
+          {
+            "departure_airport": {"name": "Frankfurt", "id": "FRA", "time": "2027-01-22 07:00"},
+            "arrival_airport": {"name": "Tokyo Haneda", "id": "HND", "time": "2027-01-23 03:05"},
+            "duration": 725,
+            "airline": "ANA",
+            "travel_class": "Economy",
+            "flight_number": "NH 204"
+          }
+        ],
+        "layovers": [
+          {"duration": 185, "name": "Sao Paulo Guarulhos", "id": "GRU"},
+          {"duration": 145, "name": "Frankfurt", "id": "FRA"}
+        ],
+        "total_duration": 1975,
+        "price": 1387,
+        "type": "Round trip",
+        "booking_token": "FIXTURE_BOOKING_TOKEN_RETURN"
+      }
+    ],
+    "other_flights": []
+  }
+}

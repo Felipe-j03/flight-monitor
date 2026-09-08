@@ -1,0 +1,84 @@
+# Runs the monitor on GitHub's cron instead of keeping a server up.
+#
+# WHY THE DATABASE MUST BE EXTERNAL
+#   The runner is destroyed after every job. The price history therefore has to live somewhere
+#   durable, or every run sees every itinerary for the first time and NO PRICE DROP IS EVER
+#   DETECTED — which is the entire point of the system. Point DATABASE_URL at a free managed
+#   Postgres (Neon, Supabase, Aiven). See DEPLOY.md for the walkthrough.
+#
+# WHERE THE TRIP CONFIGURATION COMES FROM
+#   .env is gitignored and never reaches the runner. Everything that is not a secret — airports,
+#   dates, budget, blocked countries, thresholds — comes from the committed defaults in
+#   src/main/resources/application.yml. Change the trip THERE and commit it; editing .env locally
+#   has no effect on what runs here.
+#
+# COST
+#   About 3 minutes per run, twice a day, so roughly 180 minutes a month against the 2,000 free
+#   minutes a private repository gets. Public repositories are unmetered.
+
+name: Scheduled flight search
+
+on:
+  schedule:
+    # Twice a day, matching SEARCH_INTERVAL_HOURS=12. Times are UTC and are best-effort:
+    # GitHub delays scheduled runs under load, and disables them after 60 days of repo inactivity.
+    - cron: '0 5,17 * * *'
+  workflow_dispatch:
+
+# One search at a time: overlapping runs would double-spend the metered provider budget.
+concurrency:
+  group: flight-search
+  cancel-in-progress: false
+
+jobs:
+  search:
+    name: Search and notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Build
+        run: mvn -B -ntp -DskipTests package
+
+      - name: Run one search
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_USER: ${{ secrets.DATABASE_USER }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+
+          TELEGRAM_ENABLED: 'true'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+
+          # The external cron replaces the in-process scheduler; the one-shot runner does the work.
+          SEARCH_ENABLED: 'false'
+        run: |
+          java -jar target/flight-monitor-*.jar \
+            --flight-monitor.search.one-shot=true \
+            --spring.main.web-application-type=none
+
+      # A failed run is worth knowing about: silence from this workflow is indistinguishable from
+      # "no cheap flights", which is exactly the confusion the monitor exists to remove.
+      - name: Report failure to Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            -d "chat_id=$TELEGRAM_CHAT_ID" \
+            --data-urlencode "text=⚠️ Flight Monitor: a busca agendada falhou. Detalhes: $RUN_URL" \
+            > /dev/null

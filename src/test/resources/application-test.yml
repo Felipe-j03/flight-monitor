@@ -1,0 +1,37 @@
+# Overrides layered on top of the real application.yml, so the production configuration is loaded
+# and validated by every integration test rather than being bypassed.
+spring:
+  datasource:
+    url: jdbc:h2:mem:flightmonitor;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+
+telegram:
+  enabled: false
+  bot-token: ""
+  chat-id: ""
+
+logging:
+  level:
+    com.flightmonitor: INFO
+    org.hibernate.SQL: WARN
+
+flight-monitor:
+  search:
+    enabled: false          # tests drive the orchestrator directly
+    run-on-startup: false
+    max-queries-per-run: 1
+  providers:
+    serpapi:
+      enabled: false
+    travelpayouts:
+      enabled: false
+    fixture:
+      enabled: true         # the only provider tests may use: SIMULATED DATA, no network

@@ -1,0 +1,259 @@
+# IATA airport catalogue used by the safety filter to resolve airport -> country.
+# Deliberately local: the blocked-country rule must not depend on what a remote API calls a place.
+# Columns: iata,name,city,country_code(ISO 3166-1 alpha-2),country_name,iana_timezone
+# Any airport missing from this file is treated as UNKNOWN_AIRPORT_COUNTRY and rejected by default
+# (flight-monitor.safety.reject-unknown-airports). Add rows here to extend coverage.
+iata,name,city,country_code,country_name,timezone
+HND,Tokyo Haneda,Tokyo,JP,Japan,Asia/Tokyo
+NRT,Tokyo Narita,Tokyo,JP,Japan,Asia/Tokyo
+KIX,Kansai International,Osaka,JP,Japan,Asia/Tokyo
+ITM,Osaka Itami,Osaka,JP,Japan,Asia/Tokyo
+NGO,Chubu Centrair,Nagoya,JP,Japan,Asia/Tokyo
+CTS,New Chitose,Sapporo,JP,Japan,Asia/Tokyo
+FUK,Fukuoka,Fukuoka,JP,Japan,Asia/Tokyo
+OKA,Naha,Okinawa,JP,Japan,Asia/Tokyo
+POA,Salgado Filho,Porto Alegre,BR,Brazil,America/Sao_Paulo
+FLN,Hercilio Luz,Florianopolis,BR,Brazil,America/Sao_Paulo
+CWB,Afonso Pena,Curitiba,BR,Brazil,America/Sao_Paulo
+NVT,Navegantes,Navegantes,BR,Brazil,America/Sao_Paulo
+JOI,Lauro Carneiro de Loyola,Joinville,BR,Brazil,America/Sao_Paulo
+CXJ,Hugo Cantergiani,Caxias do Sul,BR,Brazil,America/Sao_Paulo
+PET,Joao Simoes Lopes Neto,Pelotas,BR,Brazil,America/Sao_Paulo
+GRU,Sao Paulo Guarulhos,Sao Paulo,BR,Brazil,America/Sao_Paulo
+CGH,Congonhas,Sao Paulo,BR,Brazil,America/Sao_Paulo
+VCP,Viracopos,Campinas,BR,Brazil,America/Sao_Paulo
+GIG,Rio de Janeiro Galeao,Rio de Janeiro,BR,Brazil,America/Sao_Paulo
+SDU,Santos Dumont,Rio de Janeiro,BR,Brazil,America/Sao_Paulo
+BSB,Brasilia,Brasilia,BR,Brazil,America/Sao_Paulo
+CNF,Confins,Belo Horizonte,BR,Brazil,America/Sao_Paulo
+SSA,Deputado Luis Eduardo Magalhaes,Salvador,BR,Brazil,America/Bahia
+REC,Guararapes,Recife,BR,Brazil,America/Recife
+FOR,Pinto Martins,Fortaleza,BR,Brazil,America/Fortaleza
+NAT,Sao Goncalo do Amarante,Natal,BR,Brazil,America/Fortaleza
+MAO,Eduardo Gomes,Manaus,BR,Brazil,America/Manaus
+BEL,Val de Cans,Belem,BR,Brazil,America/Belem
+VIX,Eurico de Aguiar Salles,Vitoria,BR,Brazil,America/Sao_Paulo
+GYN,Santa Genoveva,Goiania,BR,Brazil,America/Sao_Paulo
+IGU,Foz do Iguacu,Foz do Iguacu,BR,Brazil,America/Sao_Paulo
+MGF,Silvio Name Junior,Maringa,BR,Brazil,America/Sao_Paulo
+LDB,Governador Jose Richa,Londrina,BR,Brazil,America/Sao_Paulo
+EZE,Ministro Pistarini,Buenos Aires,AR,Argentina,America/Argentina/Buenos_Aires
+AEP,Aeroparque Jorge Newbery,Buenos Aires,AR,Argentina,America/Argentina/Buenos_Aires
+COR,Ingeniero Taravella,Cordoba,AR,Argentina,America/Argentina/Cordoba
+MVD,Carrasco,Montevideo,UY,Uruguay,America/Montevideo
+ASU,Silvio Pettirossi,Asuncion,PY,Paraguay,America/Asuncion
+SCL,Arturo Merino Benitez,Santiago,CL,Chile,America/Santiago
+LIM,Jorge Chavez,Lima,PE,Peru,America/Lima
+BOG,El Dorado,Bogota,CO,Colombia,America/Bogota
+MDE,Jose Maria Cordova,Medellin,CO,Colombia,America/Bogota
+UIO,Mariscal Sucre,Quito,EC,Ecuador,America/Guayaquil
+GYE,Jose Joaquin de Olmedo,Guayaquil,EC,Ecuador,America/Guayaquil
+VVI,Viru Viru,Santa Cruz,BO,Bolivia,America/La_Paz
+LPB,El Alto,La Paz,BO,Bolivia,America/La_Paz
+CCS,Simon Bolivar,Caracas,VE,Venezuela,America/Caracas
+PTY,Tocumen,Panama City,PA,Panama,America/Panama
+SJO,Juan Santamaria,San Jose,CR,Costa Rica,America/Costa_Rica
+MEX,Benito Juarez,Mexico City,MX,Mexico,America/Mexico_City
+CUN,Cancun,Cancun,MX,Mexico,America/Cancun
+HAV,Jose Marti,Havana,CU,Cuba,America/Havana
+SJU,Luis Munoz Marin,San Juan,PR,Puerto Rico,America/Puerto_Rico
+JFK,John F Kennedy,New York,US,United States,America/New_York
+EWR,Newark Liberty,Newark,US,United States,America/New_York
+LGA,LaGuardia,New York,US,United States,America/New_York
+BOS,Logan,Boston,US,United States,America/New_York
+IAD,Dulles,Washington,US,United States,America/New_York
+DCA,Reagan National,Washington,US,United States,America/New_York
+PHL,Philadelphia,Philadelphia,US,United States,America/New_York
+ATL,Hartsfield Jackson,Atlanta,US,United States,America/New_York
+MIA,Miami,Miami,US,United States,America/New_York
+MCO,Orlando,Orlando,US,United States,America/New_York
+FLL,Fort Lauderdale,Fort Lauderdale,US,United States,America/New_York
+CLT,Charlotte Douglas,Charlotte,US,United States,America/New_York
+DTW,Detroit Metropolitan,Detroit,US,United States,America/New_York
+ORD,O Hare,Chicago,US,United States,America/Chicago
+MDW,Midway,Chicago,US,United States,America/Chicago
+DFW,Dallas Fort Worth,Dallas,US,United States,America/Chicago
+IAH,George Bush Intercontinental,Houston,US,United States,America/Chicago
+MSP,Minneapolis St Paul,Minneapolis,US,United States,America/Chicago
+DEN,Denver,Denver,US,United States,America/Denver
+PHX,Sky Harbor,Phoenix,US,United States,America/Phoenix
+LAS,Harry Reid,Las Vegas,US,United States,America/Los_Angeles
+LAX,Los Angeles,Los Angeles,US,United States,America/Los_Angeles
+SFO,San Francisco,San Francisco,US,United States,America/Los_Angeles
+SAN,San Diego,San Diego,US,United States,America/Los_Angeles
+SEA,Seattle Tacoma,Seattle,US,United States,America/Los_Angeles
+PDX,Portland,Portland,US,United States,America/Los_Angeles
+HNL,Daniel K Inouye,Honolulu,US,United States,Pacific/Honolulu
+ANC,Ted Stevens,Anchorage,US,United States,America/Anchorage
+YYZ,Toronto Pearson,Toronto,CA,Canada,America/Toronto
+YUL,Montreal Trudeau,Montreal,CA,Canada,America/Toronto
+YVR,Vancouver,Vancouver,CA,Canada,America/Vancouver
+YYC,Calgary,Calgary,CA,Canada,America/Edmonton
+YOW,Ottawa Macdonald Cartier,Ottawa,CA,Canada,America/Toronto
+LHR,Heathrow,London,GB,United Kingdom,Europe/London
+LGW,Gatwick,London,GB,United Kingdom,Europe/London
+STN,Stansted,London,GB,United Kingdom,Europe/London
+LTN,Luton,London,GB,United Kingdom,Europe/London
+LCY,London City,London,GB,United Kingdom,Europe/London
+MAN,Manchester,Manchester,GB,United Kingdom,Europe/London
+EDI,Edinburgh,Edinburgh,GB,United Kingdom,Europe/London
+GLA,Glasgow,Glasgow,GB,United Kingdom,Europe/London
+BHX,Birmingham,Birmingham,GB,United Kingdom,Europe/London
+DUB,Dublin,Dublin,IE,Ireland,Europe/Dublin
+CDG,Charles de Gaulle,Paris,FR,France,Europe/Paris
+ORY,Orly,Paris,FR,France,Europe/Paris
+NCE,Cote d Azur,Nice,FR,France,Europe/Paris
+LYS,Saint Exupery,Lyon,FR,France,Europe/Paris
+AMS,Schiphol,Amsterdam,NL,Netherlands,Europe/Amsterdam
+BRU,Brussels,Brussels,BE,Belgium,Europe/Brussels
+LUX,Luxembourg,Luxembourg,LU,Luxembourg,Europe/Luxembourg
+FRA,Frankfurt,Frankfurt,DE,Germany,Europe/Berlin
+MUC,Munich,Munich,DE,Germany,Europe/Berlin
+BER,Brandenburg,Berlin,DE,Germany,Europe/Berlin
+DUS,Dusseldorf,Dusseldorf,DE,Germany,Europe/Berlin
+HAM,Hamburg,Hamburg,DE,Germany,Europe/Berlin
+ZRH,Zurich,Zurich,CH,Switzerland,Europe/Zurich
+GVA,Geneva,Geneva,CH,Switzerland,Europe/Zurich
+VIE,Vienna,Vienna,AT,Austria,Europe/Vienna
+MAD,Barajas,Madrid,ES,Spain,Europe/Madrid
+BCN,El Prat,Barcelona,ES,Spain,Europe/Madrid
+AGP,Malaga,Malaga,ES,Spain,Europe/Madrid
+PMI,Palma de Mallorca,Palma,ES,Spain,Europe/Madrid
+LIS,Humberto Delgado,Lisbon,PT,Portugal,Europe/Lisbon
+OPO,Francisco Sa Carneiro,Porto,PT,Portugal,Europe/Lisbon
+FCO,Fiumicino,Rome,IT,Italy,Europe/Rome
+MXP,Malpensa,Milan,IT,Italy,Europe/Rome
+LIN,Linate,Milan,IT,Italy,Europe/Rome
+VCE,Marco Polo,Venice,IT,Italy,Europe/Rome
+NAP,Capodichino,Naples,IT,Italy,Europe/Rome
+ATH,Eleftherios Venizelos,Athens,GR,Greece,Europe/Athens
+CPH,Kastrup,Copenhagen,DK,Denmark,Europe/Copenhagen
+ARN,Arlanda,Stockholm,SE,Sweden,Europe/Stockholm
+OSL,Gardermoen,Oslo,NO,Norway,Europe/Oslo
+HEL,Helsinki Vantaa,Helsinki,FI,Finland,Europe/Helsinki
+KEF,Keflavik,Reykjavik,IS,Iceland,Atlantic/Reykjavik
+WAW,Chopin,Warsaw,PL,Poland,Europe/Warsaw
+KRK,John Paul II,Krakow,PL,Poland,Europe/Warsaw
+PRG,Vaclav Havel,Prague,CZ,Czechia,Europe/Prague
+BUD,Ferenc Liszt,Budapest,HU,Hungary,Europe/Budapest
+OTP,Henri Coanda,Bucharest,RO,Romania,Europe/Bucharest
+SOF,Sofia,Sofia,BG,Bulgaria,Europe/Sofia
+ZAG,Franjo Tudman,Zagreb,HR,Croatia,Europe/Zagreb
+BEG,Nikola Tesla,Belgrade,RS,Serbia,Europe/Belgrade
+LJU,Joze Pucnik,Ljubljana,SI,Slovenia,Europe/Ljubljana
+TLL,Lennart Meri,Tallinn,EE,Estonia,Europe/Tallinn
+RIX,Riga,Riga,LV,Latvia,Europe/Riga
+VNO,Vilnius,Vilnius,LT,Lithuania,Europe/Vilnius
+IST,Istanbul,Istanbul,TR,Turkiye,Europe/Istanbul
+SAW,Sabiha Gokcen,Istanbul,TR,Turkiye,Europe/Istanbul
+ESB,Esenboga,Ankara,TR,Turkiye,Europe/Istanbul
+AYT,Antalya,Antalya,TR,Turkiye,Europe/Istanbul
+ADB,Adnan Menderes,Izmir,TR,Turkiye,Europe/Istanbul
+SVO,Sheremetyevo,Moscow,RU,Russia,Europe/Moscow
+DME,Domodedovo,Moscow,RU,Russia,Europe/Moscow
+VKO,Vnukovo,Moscow,RU,Russia,Europe/Moscow
+LED,Pulkovo,Saint Petersburg,RU,Russia,Europe/Moscow
+KBP,Boryspil,Kyiv,UA,Ukraine,Europe/Kyiv
+MSQ,Minsk,Minsk,BY,Belarus,Europe/Minsk
+DOH,Hamad International,Doha,QA,Qatar,Asia/Qatar
+DXB,Dubai International,Dubai,AE,United Arab Emirates,Asia/Dubai
+DWC,Al Maktoum,Dubai,AE,United Arab Emirates,Asia/Dubai
+AUH,Zayed International,Abu Dhabi,AE,United Arab Emirates,Asia/Dubai
+SHJ,Sharjah,Sharjah,AE,United Arab Emirates,Asia/Dubai
+RUH,King Khalid,Riyadh,SA,Saudi Arabia,Asia/Riyadh
+JED,King Abdulaziz,Jeddah,SA,Saudi Arabia,Asia/Riyadh
+DMM,King Fahd,Dammam,SA,Saudi Arabia,Asia/Riyadh
+KWI,Kuwait International,Kuwait City,KW,Kuwait,Asia/Kuwait
+BAH,Bahrain International,Manama,BH,Bahrain,Asia/Bahrain
+MCT,Muscat International,Muscat,OM,Oman,Asia/Muscat
+AMM,Queen Alia,Amman,JO,Jordan,Asia/Amman
+BEY,Rafic Hariri,Beirut,LB,Lebanon,Asia/Beirut
+DAM,Damascus,Damascus,SY,Syria,Asia/Damascus
+BGW,Baghdad International,Baghdad,IQ,Iraq,Asia/Baghdad
+EBL,Erbil International,Erbil,IQ,Iraq,Asia/Baghdad
+IKA,Imam Khomeini,Tehran,IR,Iran,Asia/Tehran
+SAH,Sanaa International,Sanaa,YE,Yemen,Asia/Aden
+TLV,Ben Gurion,Tel Aviv,IL,Israel,Asia/Jerusalem
+CAI,Cairo International,Cairo,EG,Egypt,Africa/Cairo
+HRG,Hurghada,Hurghada,EG,Egypt,Africa/Cairo
+CMN,Mohammed V,Casablanca,MA,Morocco,Africa/Casablanca
+RAK,Menara,Marrakesh,MA,Morocco,Africa/Casablanca
+ALG,Houari Boumediene,Algiers,DZ,Algeria,Africa/Algiers
+TUN,Carthage,Tunis,TN,Tunisia,Africa/Tunis
+TIP,Mitiga,Tripoli,LY,Libya,Africa/Tripoli
+KRT,Khartoum,Khartoum,SD,Sudan,Africa/Khartoum
+ADD,Bole,Addis Ababa,ET,Ethiopia,Africa/Addis_Ababa
+NBO,Jomo Kenyatta,Nairobi,KE,Kenya,Africa/Nairobi
+DAR,Julius Nyerere,Dar es Salaam,TZ,Tanzania,Africa/Dar_es_Salaam
+JNB,OR Tambo,Johannesburg,ZA,South Africa,Africa/Johannesburg
+CPT,Cape Town,Cape Town,ZA,South Africa,Africa/Johannesburg
+DUR,King Shaka,Durban,ZA,South Africa,Africa/Johannesburg
+LOS,Murtala Muhammed,Lagos,NG,Nigeria,Africa/Lagos
+ABV,Nnamdi Azikiwe,Abuja,NG,Nigeria,Africa/Lagos
+ACC,Kotoka,Accra,GH,Ghana,Africa/Accra
+DKR,Blaise Diagne,Dakar,SN,Senegal,Africa/Dakar
+ABJ,Felix Houphouet Boigny,Abidjan,CI,Cote d Ivoire,Africa/Abidjan
+LAD,Quatro de Fevereiro,Luanda,AO,Angola,Africa/Luanda
+MPM,Maputo,Maputo,MZ,Mozambique,Africa/Maputo
+MRU,Sir Seewoosagur Ramgoolam,Port Louis,MU,Mauritius,Indian/Mauritius
+SEZ,Seychelles International,Mahe,SC,Seychelles,Indian/Mahe
+SID,Amilcar Cabral,Sal,CV,Cabo Verde,Atlantic/Cape_Verde
+ICN,Incheon,Seoul,KR,South Korea,Asia/Seoul
+GMP,Gimpo,Seoul,KR,South Korea,Asia/Seoul
+PUS,Gimhae,Busan,KR,South Korea,Asia/Seoul
+PEK,Beijing Capital,Beijing,CN,China,Asia/Shanghai
+PKX,Beijing Daxing,Beijing,CN,China,Asia/Shanghai
+PVG,Shanghai Pudong,Shanghai,CN,China,Asia/Shanghai
+SHA,Shanghai Hongqiao,Shanghai,CN,China,Asia/Shanghai
+CAN,Baiyun,Guangzhou,CN,China,Asia/Shanghai
+SZX,Baoan,Shenzhen,CN,China,Asia/Shanghai
+CTU,Tianfu,Chengdu,CN,China,Asia/Shanghai
+XIY,Xianyang,Xian,CN,China,Asia/Shanghai
+HGH,Xiaoshan,Hangzhou,CN,China,Asia/Shanghai
+HKG,Hong Kong International,Hong Kong,HK,Hong Kong,Asia/Hong_Kong
+MFM,Macau International,Macau,MO,Macau,Asia/Macau
+TPE,Taoyuan,Taipei,TW,Taiwan,Asia/Taipei
+TSA,Songshan,Taipei,TW,Taiwan,Asia/Taipei
+BKK,Suvarnabhumi,Bangkok,TH,Thailand,Asia/Bangkok
+DMK,Don Mueang,Bangkok,TH,Thailand,Asia/Bangkok
+HKT,Phuket,Phuket,TH,Thailand,Asia/Bangkok
+SIN,Changi,Singapore,SG,Singapore,Asia/Singapore
+KUL,Kuala Lumpur International,Kuala Lumpur,MY,Malaysia,Asia/Kuala_Lumpur
+CGK,Soekarno Hatta,Jakarta,ID,Indonesia,Asia/Jakarta
+DPS,Ngurah Rai,Denpasar,ID,Indonesia,Asia/Makassar
+MNL,Ninoy Aquino,Manila,PH,Philippines,Asia/Manila
+CEB,Mactan Cebu,Cebu,PH,Philippines,Asia/Manila
+HAN,Noi Bai,Hanoi,VN,Vietnam,Asia/Ho_Chi_Minh
+SGN,Tan Son Nhat,Ho Chi Minh City,VN,Vietnam,Asia/Ho_Chi_Minh
+PNH,Phnom Penh,Phnom Penh,KH,Cambodia,Asia/Phnom_Penh
+RGN,Yangon,Yangon,MM,Myanmar,Asia/Yangon
+DEL,Indira Gandhi,Delhi,IN,India,Asia/Kolkata
+BOM,Chhatrapati Shivaji,Mumbai,IN,India,Asia/Kolkata
+BLR,Kempegowda,Bengaluru,IN,India,Asia/Kolkata
+MAA,Chennai,Chennai,IN,India,Asia/Kolkata
+HYD,Rajiv Gandhi,Hyderabad,IN,India,Asia/Kolkata
+CCU,Netaji Subhas Chandra Bose,Kolkata,IN,India,Asia/Kolkata
+CMB,Bandaranaike,Colombo,LK,Sri Lanka,Asia/Colombo
+MLE,Velana,Male,MV,Maldives,Indian/Maldives
+KTM,Tribhuvan,Kathmandu,NP,Nepal,Asia/Kathmandu
+DAC,Hazrat Shahjalal,Dhaka,BD,Bangladesh,Asia/Dhaka
+KHI,Jinnah,Karachi,PK,Pakistan,Asia/Karachi
+LHE,Allama Iqbal,Lahore,PK,Pakistan,Asia/Karachi
+ISB,Islamabad International,Islamabad,PK,Pakistan,Asia/Karachi
+KBL,Hamid Karzai,Kabul,AF,Afghanistan,Asia/Kabul
+TAS,Islam Karimov,Tashkent,UZ,Uzbekistan,Asia/Tashkent
+ALA,Almaty,Almaty,KZ,Kazakhstan,Asia/Almaty
+NQZ,Nursultan Nazarbayev,Astana,KZ,Kazakhstan,Asia/Almaty
+GYD,Heydar Aliyev,Baku,AZ,Azerbaijan,Asia/Baku
+TBS,Tbilisi,Tbilisi,GE,Georgia,Asia/Tbilisi
+EVN,Zvartnots,Yerevan,AM,Armenia,Asia/Yerevan
+SYD,Kingsford Smith,Sydney,AU,Australia,Australia/Sydney
+MEL,Tullamarine,Melbourne,AU,Australia,Australia/Melbourne
+BNE,Brisbane,Brisbane,AU,Australia,Australia/Brisbane
+PER,Perth,Perth,AU,Australia,Australia/Perth
+ADL,Adelaide,Adelaide,AU,Australia,Australia/Adelaide
+AKL,Auckland,Auckland,NZ,New Zealand,Pacific/Auckland
+CHC,Christchurch,Christchurch,NZ,New Zealand,Pacific/Auckland
+NAN,Nadi,Nadi,FJ,Fiji,Pacific/Fiji
+PPT,Faaa,Papeete,PF,French Polynesia,Pacific/Tahiti
+GUM,Antonio B Won Pat,Hagatna,GU,Guam,Pacific/Guam
