@@ -62,6 +62,39 @@ class QueryPlannerTest {
     }
 
     @Test
+    @DisplayName("rotates the origin airport, so Narita is not starved by alphabetical ties")
+    void rotatesOrigin() {
+        // HND and NRT tie on priority for the same date, and the tie breaks alphabetically. Without
+        // rotation a provider limited to two queries would search HND twice a day, for ever, and
+        // never look at NRT once — despite both being configured as origins.
+        String first = primaryOriginOn("2026-09-08");
+        String second = primaryOriginOn("2026-09-09");
+
+        assertThat(List.of(first, second)).containsExactlyInAnyOrder("HND", "NRT");
+    }
+
+    @Test
+    @DisplayName("both origins get searched across consecutive days")
+    void bothOriginsCoveredOverTime() {
+        List<String> origins = List.of(
+                        "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11").stream()
+                .map(this::primaryOriginOn)
+                .distinct()
+                .sorted()
+                .toList();
+
+        assertThat(origins).containsExactly("HND", "NRT");
+    }
+
+    private String primaryOriginOn(String date) {
+        return plannerOn(date).plan(TestFixtures.trip(), 2).stream()
+                .filter(query -> query.destination().equals("POA"))
+                .map(SearchQuery::origin)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    @Test
     @DisplayName("rotates which alternative airport gets the slot from day to day")
     void rotatesAlternatives() {
         // Three alternatives (CWB, FLN, GRU) rotate on day-of-year modulo three.

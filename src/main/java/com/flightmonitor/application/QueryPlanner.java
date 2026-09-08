@@ -98,34 +98,57 @@ public class QueryPlanner {
                     : primary.stream().limit(maxQueries).toList();
         }
 
-        List<String> alternativeAirports = alternative.stream()
-                .map(SearchQuery::destination)
-                .distinct()
-                .sorted()
-                .toList();
-        String todaysAirport = alternativeAirports.get(
-                LocalDate.now(clock).getDayOfYear() % alternativeAirports.size());
-
-        SearchQuery alternativeSlot = alternative.stream()
-                .filter(query -> query.destination().equals(todaysAirport))
-                .findFirst()
-                .orElse(alternative.get(0));
+        SearchQuery alternativeSlot = rotate(
+                alternative, SearchQuery::destination, alternative.get(0));
 
         List<SearchQuery> chosen = new ArrayList<>();
-        List<SearchQuery> remainingPrimary = primary.stream()
-                .limit(maxQueries - 1L)
-                .toList();
 
         // Position matters as much as inclusion. Providers consume this list from the front and
         // stop at their own per-run cap — a provider allowed two queries would never reach an
         // alternative parked at the end. Best primary first, alternative second, rest after.
-        if (!remainingPrimary.isEmpty()) {
-            chosen.add(remainingPrimary.get(0));
+        //
+        // The origin rotates for the same reason the destination does: HND and NRT tie on priority
+        // and the tie breaks alphabetically, so without rotating, a budget-limited provider would
+        // search HND every single run and never look at NRT once.
+        //
+        // Rotate over the WHOLE primary list, then truncate. Truncating first leaves a single
+        // candidate and makes the rotation a no-op — which is exactly the bug this comment exists
+        // to stop coming back.
+        if (!primary.isEmpty()) {
+            chosen.add(rotate(primary, SearchQuery::origin, primary.get(0)));
         }
         chosen.add(alternativeSlot);
-        chosen.addAll(remainingPrimary.stream().skip(1).toList());
+
+        primary.stream()
+                .filter(query -> !chosen.contains(query))
+                .limit(Math.max(0, maxQueries - chosen.size()))
+                .forEach(chosen::add);
 
         return List.copyOf(chosen);
+    }
+
+    /**
+     * Picks the highest-priority query whose {@code key} matches today's slot in the rotation.
+     *
+     * <p>Rotation is the day of the year modulo the number of distinct values, so it needs no
+     * stored state, survives restarts, and covers every value over a few days. Used for both the
+     * alternative destination and the origin airport: in each case the candidates are otherwise
+     * tied on priority and would be resolved alphabetically, handing every run to the same one.
+     */
+    private SearchQuery rotate(
+            List<SearchQuery> candidates,
+            java.util.function.Function<SearchQuery, String> key,
+            SearchQuery fallback) {
+
+        List<String> values = candidates.stream().map(key).distinct().sorted().toList();
+        if (values.isEmpty()) {
+            return fallback;
+        }
+        String todays = values.get(LocalDate.now(clock).getDayOfYear() % values.size());
+        return candidates.stream()
+                .filter(query -> todays.equals(key.apply(query)))
+                .findFirst()
+                .orElse(fallback);
     }
 
     private int priority(
