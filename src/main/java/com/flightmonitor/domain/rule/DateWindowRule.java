@@ -5,6 +5,7 @@ import com.flightmonitor.domain.model.Itinerary;
 import com.flightmonitor.domain.model.Rejection;
 import com.flightmonitor.domain.model.RejectionReason;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,19 @@ public final class DateWindowRule {
                         RejectionReason.DEPARTURE_OUTSIDE_WINDOW,
                         "departure=" + departureDate
                                 + " window=" + trip.earliestDeparture() + ".." + trip.latestDeparture()));
+            }
+            // Local time at the departure airport, taken from the offset the provider reported.
+            // Providers that honour the window at search time never trip this; it is the backstop
+            // for those that cannot filter by time (and for anyone changing the config later).
+            if (trip.hasOutboundWindow()) {
+                LocalTime leaves = departure.toLocalTime();
+                if (leaves.isBefore(trip.outboundDepartureFrom())
+                        || leaves.isAfter(trip.outboundDepartureTo())) {
+                    rejections.add(Rejection.of(
+                            RejectionReason.DEPARTURE_TIME_OUTSIDE_WINDOW,
+                            "departs=" + leaves + " window=" + trip.outboundDepartureFrom()
+                                    + ".." + trip.outboundDepartureTo()));
+                }
             }
         }
 

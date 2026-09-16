@@ -5,6 +5,7 @@ import com.flightmonitor.config.TripConfig;
 import com.flightmonitor.domain.model.Itinerary;
 import com.flightmonitor.domain.model.OfferEvaluation;
 import com.flightmonitor.domain.port.AirportCatalog;
+import com.flightmonitor.domain.port.ExchangeRateProvider;
 import com.flightmonitor.domain.port.FlightSearchProvider;
 import com.flightmonitor.domain.port.NotificationPort;
 import com.flightmonitor.domain.port.ProviderResult;
@@ -59,6 +60,7 @@ public class SearchOrchestrator {
     private final ProviderRunRepository providerRuns;
     private final AlertRepository alerts;
     private final FlightOfferRepository offers;
+    private final ExchangeRateProvider exchangeRates;
     private final Clock clock;
 
     public SearchOrchestrator(
@@ -73,6 +75,7 @@ public class SearchOrchestrator {
             ProviderRunRepository providerRuns,
             AlertRepository alerts,
             FlightOfferRepository offers,
+            ExchangeRateProvider exchangeRates,
             Clock clock) {
         this.properties = properties;
         this.providers = providers;
@@ -85,6 +88,7 @@ public class SearchOrchestrator {
         this.providerRuns = providerRuns;
         this.alerts = alerts;
         this.offers = offers;
+        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
@@ -131,6 +135,29 @@ public class SearchOrchestrator {
             return SearchSummary.of(run, List.of());
         }
 
+        // Every price comparison in the domain is in GBP. A trip budgeted in another currency gets
+        // its budget converted with today's live rate — checked BEFORE any provider is called, so
+        // a missing rate costs nothing instead of costing a search that could not be judged.
+        TripConfig pricedTrip = trip;
+        if (!trip.budgetInGbp()) {
+            var rate = exchangeRates.rate(trip.budgetCurrency(), "GBP");
+            if (rate.isEmpty()) {
+                run.status = "FX_UNAVAILABLE";
+                run.finishedAt = OffsetDateTime.now(clock);
+                run.notes = "No live " + trip.budgetCurrency() + "->GBP rate; the budget could "
+                        + "not be converted, so no provider was called.";
+                searchRuns.save(run);
+                log.error("SEARCH_COMPLETED trip={} status=FX_UNAVAILABLE currency={}",
+                        trip.id(), trip.budgetCurrency());
+                return SearchSummary.of(run, List.of());
+            }
+            pricedTrip = trip.withBudgetConvertedToGbp(rate.get().rate());
+            log.info("BUDGET_CONVERTED trip={} {} {}-{} = GBP {}-{} (rate {})",
+                    trip.id(), trip.budgetCurrency(), trip.targetMinPrice(), trip.targetMaxPrice(),
+                    pricedTrip.targetMinPriceGbp(), pricedTrip.targetMaxPriceGbp(),
+                    rate.get().rate());
+        }
+
         List<Itinerary> found = new ArrayList<>();
         int executed = 0;
 
@@ -150,7 +177,7 @@ public class SearchOrchestrator {
         }
 
         OfferEvaluator evaluator = new OfferEvaluator(
-                trip, properties.safety(), properties.scoring(), catalog);
+                pricedTrip, properties.safety(), properties.scoring(), catalog);
 
         Map<String, List<OfferEvaluation>> byFingerprint = new LinkedHashMap<>();
         int rejected = 0;
@@ -169,7 +196,7 @@ public class SearchOrchestrator {
         }
 
         List<AlertCandidate> candidates = new ArrayList<>();
-        AlertDecider decider = new AlertDecider(properties.alerts(), trip);
+        AlertDecider decider = new AlertDecider(properties.alerts(), pricedTrip);
 
         for (List<OfferEvaluation> group : byFingerprint.values()) {
             OfferStore.StoredOffer stored = offerStore.saveGroup(group);

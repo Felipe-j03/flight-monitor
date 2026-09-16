@@ -62,6 +62,38 @@ class QueryPlannerTest {
     }
 
     @Test
+    @DisplayName("Rio: GIG and SDU go out as ONE query carrying the trip's currency and time window")
+    void rioIsOneCombinedQuery() {
+        List<SearchQuery> plan = plannerOn("2026-09-16").plan(TestFixtures.rioTrip(), 12);
+
+        assertThat(plan).singleElement().satisfies(query -> {
+            assertThat(query.origin()).isEqualTo("POA");
+            assertThat(query.destination()).isEqualTo("GIG,SDU");
+            assertThat(query.destinations()).containsExactly("GIG", "SDU");
+            assertThat(query.departureDate()).isEqualTo(java.time.LocalDate.of(2027, 1, 11));
+            assertThat(query.returnDate()).isEqualTo(java.time.LocalDate.of(2027, 1, 13));
+            assertThat(query.currency()).isEqualTo("BRL");
+            assertThat(query.outboundFrom()).isEqualTo(java.time.LocalTime.of(0, 0));
+            assertThat(query.outboundTo()).isEqualTo(java.time.LocalTime.of(11, 59));
+            assertThat(query.preferredOutbound()).isEqualTo(java.time.LocalTime.of(5, 0));
+            assertThat(query.maxOptions()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    @DisplayName("Tokyo is unaffected: separate queries per airport, in GBP, no time window")
+    void tokyoUnchanged() {
+        List<SearchQuery> plan = plannerOn("2026-09-16").plan(TestFixtures.trip(), 12);
+
+        assertThat(plan).allSatisfy(query -> {
+            assertThat(query.destinations()).hasSize(1);
+            assertThat(query.currency()).isEqualTo("GBP");
+            assertThat(query.hasOutboundWindow()).isFalse();
+            assertThat(query.maxOptions()).isNull();
+        });
+    }
+
+    @Test
     @DisplayName("rotates the origin airport, so Narita is not starved by alphabetical ties")
     void rotatesOrigin() {
         // HND and NRT tie on priority for the same date, and the tie breaks alphabetically. Without

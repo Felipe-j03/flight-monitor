@@ -193,7 +193,7 @@ function renderStatus(status) {
 
   document.getElementById('stats').innerHTML = [
     card('Melhor preço atual', gbp(trip?.currentBestPriceGbp),
-         `orçamento ${gbp(trip?.budgetMinGbp)}–${gbp(trip?.budgetMaxGbp)}`),
+         `orçamento ${trip?.budgetCurrency ?? ""} ${trip?.budgetMin ?? "—"}–${trip?.budgetMax ?? "—"}`),
     card('Menor histórico', gbp(trip?.allTimeLowGbp), 'desde o início do monitoramento'),
     card('Ofertas aceitas', trip?.acceptedOffers ?? 0,
          `${trip?.lastSearchRejected ?? 0} rejeitadas na última busca`),

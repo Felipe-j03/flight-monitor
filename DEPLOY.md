@@ -1,6 +1,6 @@
 # Deploy 24/7 com GitHub Actions + Neon
 
-Roda o monitor duas vezes por dia sem manter servidor nenhum ligado. Custo: £0.
+Roda o monitor uma vez por dia sem manter servidor nenhum ligado. Custo: £0.
 
 **Nenhum passo aqui exige colar segredo em lugar público.** Os valores vão direto do seu navegador
 para os GitHub Secrets, que são cifrados e nunca aparecem nos logs.
@@ -190,7 +190,7 @@ evitar.
 
 ## Passo 5 — Deixar no automático
 
-Nada a fazer: o cron `0 5,17 * * *` já está no workflow (duas vezes por dia, UTC).
+Nada a fazer: o cron `23 11 * * *` já está no workflow (uma vez por dia, 11:23 UTC = 08:23 em Brasília). O GitHub costuma atrasar execuções agendadas em algumas horas.
 
 Duas ressalvas honestas do agendador do GitHub:
 

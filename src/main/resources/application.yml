@@ -97,8 +97,9 @@ flight-monitor:
       # Arrivals inside this margin are accepted but flagged and scored lower.
       minimum-return-buffer-hours: ${MINIMUM_RETURN_BUFFER_HOURS:12}
 
-      target-min-price-gbp: ${TARGET_MIN_PRICE_GBP:1300}
-      target-max-price-gbp: ${TARGET_MAX_PRICE_GBP:1500}
+      target-min-price: ${TARGET_MIN_PRICE_GBP:1300}
+      target-max-price: ${TARGET_MAX_PRICE_GBP:1500}
+      budget-currency: GBP
 
       excellent-duration-hours: ${EXCELLENT_DURATION_HOURS:30}
       max-preferred-duration-hours: ${MAX_PREFERRED_DURATION_HOURS:36}
@@ -107,6 +108,49 @@ flight-monitor:
 
       adults: ${ADULTS:1}
       cabin-class: ${CABIN_CLASS:ECONOMY}
+
+    # Domestic hop to Rio. Kept separate from the Tokyo trip: its own id (so the two price
+    # histories never mix), its own budget in reais, and its own time-of-day preferences.
+    - id: ${RIO_TRIP_ID:poa-rio-2027}
+      name: ${RIO_TRIP_NAME:Porto Alegre -> Rio de Janeiro (Jan 2027)}
+      enabled: ${RIO_ENABLED:true}
+      origin-airports: ${RIO_ORIGIN_AIRPORTS:POA}
+      # SDU is ~10 km from Copacabana, GIG ~20 km. Both are wanted, and both are searched in ONE
+      # metered call (combine-destinations) instead of one call per airport.
+      destination-airports: ${RIO_DESTINATION_AIRPORTS:GIG,SDU}
+      primary-destinations: ${RIO_PRIMARY_DESTINATIONS:GIG,SDU}
+      combine-destinations: true
+
+      target-departure-date: ${RIO_DEPARTURE_DATE:2027-01-11}
+      departure-flex-days: ${RIO_DEPARTURE_FLEX_DAYS:0}
+      return-window-start: ${RIO_RETURN_DATE:2027-01-13}
+      return-window-end: ${RIO_RETURN_DATE:2027-01-13}
+      # Back in Porto Alegre the same day, in Brasilia time. No safety buffer: it is a 2h flight.
+      latest-return-arrival: ${RIO_LATEST_RETURN_ARRIVAL:2027-01-13T23:59:00-03:00}
+      minimum-return-buffer-hours: 0
+
+      # Budgeted in reais. Converted to GBP with the day's live rate before comparing prices.
+      target-min-price: ${RIO_TARGET_MIN_PRICE:650}
+      target-max-price: ${RIO_TARGET_MAX_PRICE:800}
+      budget-currency: BRL
+
+      # Outbound must leave in the morning (hard filter, also applied at search time); earlier
+      # is better. The return time is only a preference until the plan with the friend is settled.
+      outbound-departure-from: ${RIO_OUTBOUND_FROM:00:00}
+      outbound-departure-to: ${RIO_OUTBOUND_TO:11:59}
+      outbound-preferred-departure: ${RIO_OUTBOUND_PREFERRED:05:00}
+      return-preferred-departure: ${RIO_RETURN_PREFERRED:11:00}
+      # Resolve the cheapest morning flight AND the one closest to 05:00, so an early flight is
+      # priced as a round trip even when a later one is cheaper. One extra call per run.
+      max-options-per-search: 2
+
+      excellent-duration-hours: 4
+      max-preferred-duration-hours: 6
+      long-duration-hours: 8
+      max-absolute-duration-hours: 12
+
+      adults: ${RIO_ADULTS:1}
+      cabin-class: ECONOMY
 
   # ---------------------------------------------------------------------------------------------
   # SAFETY / ROUTING PREFERENCE
@@ -161,7 +205,7 @@ flight-monitor:
 
   search:
     enabled: ${SEARCH_ENABLED:true}
-    interval-hours: ${SEARCH_INTERVAL_HOURS:12}
+    interval-hours: ${SEARCH_INTERVAL_HOURS:24}
     # The full cross product of airports and dates is far larger than any free tier can afford.
     # The planner emits the most relevant combinations first and stops here.
     max-queries-per-run: ${MAX_QUERIES_PER_RUN:12}

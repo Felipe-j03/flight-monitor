@@ -24,6 +24,18 @@ public record FlightMonitorProperties(
     public FlightMonitorProperties {
         trips = trips == null ? List.of() : trips;
         providers = providers == null ? Map.of() : providers;
+
+        // Trip ids key the price history. Two trips sharing one would silently merge their offers
+        // and compare a Tokyo fare against a Rio fare, so it fails at startup instead.
+        List<String> ids = trips.stream().map(TripConfig::id).toList();
+        List<String> duplicates = ids.stream()
+                .filter(id -> ids.indexOf(id) != ids.lastIndexOf(id))
+                .distinct()
+                .toList();
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Invalid configuration: trip ids must be unique, repeated: " + duplicates);
+        }
     }
 
     public List<TripConfig> enabledTrips() {

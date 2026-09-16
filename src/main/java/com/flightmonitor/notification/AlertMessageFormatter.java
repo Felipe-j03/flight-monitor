@@ -59,11 +59,13 @@ public class AlertMessageFormatter {
                     .append("Este alerta NÃO representa um preço real.\n\n");
         }
 
+        Prices prices = new Prices(trip, sources);
+
         message.append(header(type)).append("\n");
         message.append(route(offer)).append("\n");
         message.append(dates(offer)).append("\n\n");
 
-        message.append(priceSection(type, offer, change)).append("\n");
+        message.append(priceSection(type, offer, change, prices)).append("\n");
         message.append(flightSection(offer)).append("\n");
         message.append(bandLine(evaluation, trip)).append("\n");
 
@@ -96,10 +98,12 @@ public class AlertMessageFormatter {
      * shown as the previous day.
      */
     private String dates(FlightOfferEntity offer) {
-        String outbound = brazilianDate(offer.departureLocalDate, offer.departureAt);
+        String outbound = brazilianDate(offer.departureLocalDate, offer.departureAt)
+                + localTime(offer.departureAt);
         String inbound = offer.returnDepartureLocalDate == null && offer.returnDepartureAt == null
                 ? "só ida"
-                : brazilianDate(offer.returnDepartureLocalDate, offer.returnDepartureAt);
+                : brazilianDate(offer.returnDepartureLocalDate, offer.returnDepartureAt)
+                        + localTime(offer.returnDepartureAt);
         String back = arrivalLine(offer);
         return outbound + " → " + inbound + (back == null ? "" : "\n" + back);
     }
@@ -110,6 +114,16 @@ public class AlertMessageFormatter {
                     + "/" + localDate.substring(0, 4);
         }
         return fallback == null ? "?" : DATE.format(fallback);
+    }
+
+    /**
+     * Departure time at the airport, in the offset the provider reported. Alerts are built in the
+     * same run the offer was fetched, before any database round trip could turn it into UTC.
+     */
+    private static String localTime(java.time.OffsetDateTime value) {
+        return value == null
+                ? ""
+                : " " + String.format(Locale.ROOT, "%02d:%02d", value.getHour(), value.getMinute());
     }
 
     private static String arrivalLine(FlightOfferEntity offer) {
@@ -123,13 +137,14 @@ public class AlertMessageFormatter {
                 : "🛬 Chega ao destino final: " + DATE_TIME.format(offer.returnArrivalAt);
     }
 
-    private String priceSection(AlertType type, FlightOfferEntity offer, PriceChange change) {
+    private String priceSection(
+            AlertType type, FlightOfferEntity offer, PriceChange change, Prices prices) {
         StringBuilder section = new StringBuilder();
-        section.append("💰 Agora: <b>").append(money(offer.currentPriceGbp)).append("</b>\n");
+        section.append("💰 Agora: <b>").append(prices.show(offer.currentPriceGbp)).append("</b>\n");
 
         if (change.previousGbp() != null && change.isDrop()) {
-            section.append("📉 Antes: ").append(money(change.previousGbp())).append("\n");
-            section.append("💸 Economia: ").append(money(change.dropGbp()))
+            section.append("📉 Antes: ").append(prices.show(change.previousGbp())).append("\n");
+            section.append("💸 Economia: ").append(prices.show(change.dropGbp()))
                     .append(" (-").append(percent(change.dropPercent())).append(")\n");
         } else if (change.firstSighting()) {
             section.append("👀 Primeira observação deste itinerário "
@@ -138,9 +153,9 @@ public class AlertMessageFormatter {
 
         if (type == AlertType.NEW_ALL_TIME_LOW && change.previousLowestGbp() != null) {
             section.append("📊 Menor anterior: ")
-                    .append(money(change.previousLowestGbp())).append("\n");
+                    .append(prices.show(change.previousLowestGbp())).append("\n");
         }
-        section.append("📈 Menor já registrado: ").append(money(offer.lowestPriceGbp))
+        section.append("📈 Menor já registrado: ").append(prices.show(offer.lowestPriceGbp))
                 .append(" · observações: ").append(change.observationCount());
         return section.toString();
     }
@@ -188,7 +203,8 @@ public class AlertMessageFormatter {
     private String bandLine(OfferEvaluation evaluation, TripConfig trip) {
         String price = switch (evaluation.priceBand() == null
                 ? PriceBand.ABOVE_BUDGET : evaluation.priceBand()) {
-            case EXCELLENT -> "🟢 <b>EXCELENTE</b> — abaixo de " + money(trip.targetMinPriceGbp());
+            case EXCELLENT -> "🟢 <b>EXCELENTE</b> — abaixo de "
+                    + money(trip.targetMinPrice(), trip.budgetCurrency());
             case WITHIN_BUDGET -> "🟡 <b>DENTRO DO ORÇAMENTO</b>";
             case ABOVE_BUDGET -> "🔴 <b>ACIMA DO ORÇAMENTO</b>";
         };
@@ -247,13 +263,59 @@ public class AlertMessageFormatter {
     }
 
     private static String money(BigDecimal amount) {
+        return money(amount, "GBP");
+    }
+
+    private static String money(BigDecimal amount, String currency) {
         if (amount == null) {
             return "?";
         }
         NumberFormat format = NumberFormat.getNumberInstance(PT_BR);
         format.setMinimumFractionDigits(0);
-        format.setMaximumFractionDigits(2);
-        return "£" + format.format(amount);
+        format.setMaximumFractionDigits("GBP".equals(currency) ? 2 : 0);
+        return symbol(currency) + format.format(amount);
+    }
+
+    private static String symbol(String currency) {
+        return switch (currency) {
+            case "GBP" -> "£";
+            case "BRL" -> "R$ ";
+            case "USD" -> "US$ ";
+            case "EUR" -> "€";
+            case "JPY" -> "¥";
+            default -> currency + " ";
+        };
+    }
+
+    /**
+     * Shows prices in the currency the trip is budgeted in, with GBP alongside.
+     *
+     * <p>Prices are stored in GBP. To show reais without inventing a rate, the amount is converted
+     * back with the exact rate recorded when the offer was fetched — the rate that produced the GBP
+     * figure in the first place. With no source in the trip's currency, GBP is shown alone rather
+     * than a guessed conversion.
+     */
+    private static final class Prices {
+        private final String currency;
+        private final BigDecimal rateToGbp;
+
+        Prices(TripConfig trip, List<OfferSourceEntity> sources) {
+            this.currency = trip.budgetCurrency();
+            this.rateToGbp = trip.budgetInGbp() ? null : sources.stream()
+                    .filter(source -> currency.equals(source.currency))
+                    .map(source -> source.fxRate)
+                    .filter(rate -> rate != null && rate.signum() > 0)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        String show(BigDecimal gbp) {
+            if (gbp == null || rateToGbp == null) {
+                return money(gbp);
+            }
+            BigDecimal local = gbp.divide(rateToGbp, 0, java.math.RoundingMode.HALF_UP);
+            return money(local, currency) + " (" + money(gbp) + ")";
+        }
     }
 
     private static String percent(BigDecimal value) {
@@ -280,8 +342,8 @@ public class AlertMessageFormatter {
                 + "Ida alvo: " + DATE.format(trip.targetDepartureDate())
                 + " (±" + trip.departureFlexDays() + "d)\n"
                 + "Retorno até: " + DATE_TIME.format(trip.latestReturnArrival()) + "\n"
-                + "Orçamento: " + money(trip.targetMinPriceGbp())
-                + " – " + money(trip.targetMaxPriceGbp()) + "\n"
+                + "Orçamento: " + money(trip.targetMinPrice(), trip.budgetCurrency())
+                + " – " + money(trip.targetMaxPrice(), trip.budgetCurrency()) + "\n"
                 + "Providers ativos (" + providerCount + "): " + escape(providerNames);
     }
 

@@ -46,7 +46,7 @@ public class QueryPlanner {
                     continue;
                 }
                 for (String origin : trip.originAirports()) {
-                    for (String destination : trip.destinationAirports()) {
+                    for (String destination : destinationsFor(trip)) {
                         queries.add(new SearchQuery(
                                 trip.id(),
                                 origin,
@@ -55,7 +55,12 @@ public class QueryPlanner {
                                 returnDate,
                                 trip.adults(),
                                 trip.cabinClass(),
-                                priority(trip, departure, returnDate, destination)));
+                                priority(trip, departure, returnDate, destination),
+                                trip.budgetCurrency(),
+                                trip.outboundDepartureFrom(),
+                                trip.outboundDepartureTo(),
+                                trip.outboundPreferredDeparture(),
+                                trip.maxOptionsPerSearch()));
                     }
                 }
             }
@@ -149,6 +154,17 @@ public class QueryPlanner {
                 .filter(query -> todays.equals(key.apply(query)))
                 .findFirst()
                 .orElse(fallback);
+    }
+
+    /**
+     * One query per destination airport, or a single query covering all of them when the trip asks
+     * for it. A combined query costs one metered call instead of one per airport, which is what
+     * makes watching both of Rio's airports affordable.
+     */
+    private static List<String> destinationsFor(TripConfig trip) {
+        return trip.combineDestinations()
+                ? List.of(String.join(",", trip.destinationAirports()))
+                : trip.destinationAirports();
     }
 
     private int priority(

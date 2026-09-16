@@ -37,7 +37,7 @@ public abstract class AbstractHttpFlightProvider implements FlightSearchProvider
     protected abstract ProviderResult performSearch(SearchQuery query) throws Exception;
 
     /** How many API calls one {@code performSearch} consumes; SerpApi round trips need two. */
-    protected int callCostPerSearch() {
+    protected int callCostPerSearch(SearchQuery query) {
         return 1;
     }
 
@@ -70,7 +70,7 @@ public abstract class AbstractHttpFlightProvider implements FlightSearchProvider
             return ProviderResult.skipped(code(), query, "per-run query limit reached");
         }
         if (config.maxQueriesPerMonth() > 0) {
-            for (int i = 0; i < callCostPerSearch(); i++) {
+            for (int i = 0; i < callCostPerSearch(query); i++) {
                 if (!budget.tryConsume(code(), config.maxQueriesPerMonth())) {
                     return ProviderResult.skipped(code(), query,
                             "monthly budget spent or paced out ("

@@ -6,6 +6,7 @@ import com.flightmonitor.domain.model.BaggageAllowance;
 import com.flightmonitor.domain.model.Itinerary;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -38,6 +39,9 @@ public final class OfferScorer {
 
     private static final BigDecimal PRICE_FLOOR_FACTOR = new BigDecimal("0.70");
     private static final BigDecimal PRICE_CEIL_FACTOR = new BigDecimal("1.50");
+
+    /** How far from a preferred departure time the time-of-day credit runs out. */
+    private static final double TIME_PREFERENCE_SPAN_MINUTES = 360.0;
 
     private final ScoringConfig weights;
 
@@ -74,7 +78,10 @@ public final class OfferScorer {
         if (longestLeg == null) {
             return 0.0;
         }
-        double floor = DURATION_FLOOR.toMinutes();
+        // The floor is capped by the trip's own "excellent" threshold. A fixed 20h floor made every
+        // domestic itinerary score perfectly, so a 2h non-stop and a 9h double-connection looked the
+        // same. Long-haul trips have excellent >= 20h, so their scoring is unchanged.
+        double floor = Math.min(DURATION_FLOOR.toMinutes(), trip.excellentDuration().toMinutes());
         double ceiling = trip.absoluteDuration().toMinutes();
         return normalizeDescending(longestLeg.toMinutes(), floor, ceiling);
     }
@@ -111,8 +118,28 @@ public final class OfferScorer {
         long daysOff = Math.abs(ChronoUnit.DAYS.between(
                 trip.targetDepartureDate(), departure.toLocalDate()));
         double window = trip.departureFlexDays() + 1.0;
-        double base = clamp(1.0 - (daysOff / window));
+
+        // Date closeness, plus closeness to any preferred departure time, averaged. With no time
+        // preference configured this is exactly the old date-only score.
+        double total = clamp(1.0 - (daysOff / window));
+        int parts = 1;
+        if (trip.outboundPreferredDeparture() != null) {
+            total += timeCloseness(departure.toLocalTime(), trip.outboundPreferredDeparture());
+            parts++;
+        }
+        if (trip.returnPreferredDeparture() != null && itinerary.returnDepartureAt() != null) {
+            total += timeCloseness(
+                    itinerary.returnDepartureAt().toLocalTime(), trip.returnPreferredDeparture());
+            parts++;
+        }
+        double base = total / parts;
         return returnInsideSafetyMargin ? base * 0.8 : base;
+    }
+
+    /** 1.0 on the preferred time, falling linearly to 0.0 six hours away. */
+    private static double timeCloseness(LocalTime actual, LocalTime preferred) {
+        long minutesOff = Math.abs(ChronoUnit.MINUTES.between(preferred, actual));
+        return clamp(1.0 - minutesOff / TIME_PREFERENCE_SPAN_MINUTES);
     }
 
     /** 1.0 at or below {@code best}, 0.0 at or above {@code worst}, linear in between. */

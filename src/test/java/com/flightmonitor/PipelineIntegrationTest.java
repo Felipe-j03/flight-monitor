@@ -255,9 +255,20 @@ class PipelineIntegrationTest {
 
         MonitorQueryService.StatusView status = queries.status();
 
-        assertThat(status.trips()).hasSize(1);
-        assertThat(status.trips().get(0).origins()).containsExactly("HND", "NRT");
-        assertThat(status.trips().get(0).currentBestPriceGbp()).isNotNull();
+        assertThat(status.trips())
+                .extracting(MonitorQueryService.TripStatus::id)
+                .containsExactly("tokyo-poa-2027", "poa-rio-2027");
+
+        MonitorQueryService.TripStatus tokyo = status.trips().get(0);
+        assertThat(tokyo.origins()).containsExactly("HND", "NRT");
+        assertThat(tokyo.currentBestPriceGbp()).isNotNull();
+        assertThat(tokyo.budgetCurrency()).isEqualTo("GBP");
+
+        MonitorQueryService.TripStatus rio = status.trips().get(1);
+        assertThat(rio.origins()).containsExactly("POA");
+        assertThat(rio.destinations()).containsExactly("GIG", "SDU");
+        assertThat(rio.budgetCurrency()).isEqualTo("BRL");
+        assertThat(rio.budgetMax()).isEqualByComparingTo("800");
         assertThat(status.providers())
                 .extracting(MonitorQueryService.ProviderStatus::code)
                 .contains("fixture", "serpapi", "travelpayouts");

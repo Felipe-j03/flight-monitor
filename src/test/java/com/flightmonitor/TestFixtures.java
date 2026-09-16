@@ -52,12 +52,51 @@ public final class TestFixtures {
                 12,
                 new BigDecimal("1300"),
                 new BigDecimal("1500"),
+                "GBP",
                 30,
                 36,
                 42,
                 48,
                 1,
-                "ECONOMY");
+                "ECONOMY",
+                null,
+                null,
+                null,
+                null,
+                false,
+                null);
+    }
+
+    /** The domestic Rio trip as configured: reais, morning outbound, both Rio airports at once. */
+    public static TripConfig rioTrip() {
+        return new TripConfig(
+                "poa-rio-2027",
+                "Porto Alegre -> Rio de Janeiro (Jan 2027)",
+                true,
+                List.of("POA"),
+                List.of("GIG", "SDU"),
+                List.of("GIG", "SDU"),
+                LocalDate.of(2027, 1, 11),
+                0,
+                LocalDate.of(2027, 1, 13),
+                LocalDate.of(2027, 1, 13),
+                OffsetDateTime.of(2027, 1, 13, 23, 59, 0, 0, BRAZIL),
+                0,
+                new BigDecimal("650"),
+                new BigDecimal("800"),
+                "BRL",
+                4,
+                6,
+                8,
+                12,
+                1,
+                "ECONOMY",
+                java.time.LocalTime.of(0, 0),
+                java.time.LocalTime.of(11, 59),
+                java.time.LocalTime.of(5, 0),
+                java.time.LocalTime.of(11, 0),
+                true,
+                2);
     }
 
     /** Blocks the Gulf states used in the routing tests; nothing else. */

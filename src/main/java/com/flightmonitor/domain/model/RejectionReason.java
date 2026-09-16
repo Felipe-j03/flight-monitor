@@ -24,7 +24,10 @@ public enum RejectionReason {
     /** Outbound departure falls outside the configured window around the target date. */
     DEPARTURE_OUTSIDE_WINDOW,
 
-    /** The return would land back in Japan after the hard deadline (or after the safety buffer). */
+    /** Outbound leaves outside the configured time-of-day window (e.g. an afternoon flight). */
+    DEPARTURE_TIME_OUTSIDE_WINDOW,
+
+    /** The return would land back home after the trip's hard deadline. */
     RETURN_ARRIVAL_TOO_LATE,
 
     /** Longest leg exceeds the absolute duration cap. */

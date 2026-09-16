@@ -8,6 +8,22 @@ flexibilidade de ±2 dias, volta chegando ao Japão **antes de 23/01/2027 23:59 
 **£1.300–£1.500**, rejeitando qualquer itinerário que faça conexão em países da lista de bloqueio.
 Tudo isso é configuração — nenhuma data, aeroporto ou país aparece no código.
 
+### Viagens monitoradas
+
+O `application.yml` tem duas viagens, pesquisadas e guardadas separadamente:
+
+| | Tóquio → Porto Alegre | Porto Alegre → Rio |
+|---|---|---|
+| Origem → destino | HND, NRT → POA (FLN, CWB, GRU alternativos) | POA → GIG **e** SDU, numa consulta só |
+| Datas | ida 09/01 ±2 dias, volta 16–21/01 | ida 11/01, volta 13/01 |
+| Horário | livre | ida até 11:59, preferindo 05:00; volta preferindo sair às 11:00 |
+| Orçamento | £1.300–£1.500 | **R$ 650–800**, convertido para GBP com a cotação do dia |
+| Chamadas SerpApi/dia | 4 | 3 (resolve o voo mais barato **e** o mais próximo das 05:00) |
+
+As duas rodam uma vez por dia no GitHub Actions, ~7 chamadas/dia, dentro da cota grátis.
+Para acrescentar outra viagem, basta outro bloco em `flight-monitor.trips` com `id` único; os campos
+de horário, `budget-currency`, `combine-destinations` e `max-options-per-search` são opcionais.
+
 ---
 
 ## Índice
@@ -34,7 +50,7 @@ Tudo isso é configuração — nenhuma data, aeroporto ou país aparece no cód
 
 ## 1. O que o projeto faz
 
-A cada intervalo configurado (padrão 6h) o sistema executa este pipeline:
+A cada execução (uma vez por dia no GitHub Actions) o sistema executa este pipeline, para cada viagem:
 
 ```
 planejar consultas → perguntar aos providers → normalizar → filtrar → deduplicar
@@ -215,7 +231,7 @@ uma boa intenção.
 > contabiliza `1 + max-options-per-search` chamadas por busca e o guarda de orçamento respeita isso.
 
 O orçamento mensal é **ritmado**: as chamadas não são liberadas de uma vez, e sim proporcionalmente
-ao dia do mês. Sem isso, um scheduler de 6 em 6 horas gastaria a cota inteira na primeira semana e
+ao dia do mês. Sem isso, um agendamento frequente gastaria a cota inteira na primeira semana e
 ficaria cego no resto do mês.
 
 Cadastro: <https://serpapi.com/users/sign_up> → `SERPAPI_KEY`. Para ver sua cota real sem gastar

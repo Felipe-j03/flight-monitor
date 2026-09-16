@@ -92,13 +92,18 @@ public class TravelpayoutsProvider extends AbstractHttpFlightProvider {
     protected ProviderResult performSearch(SearchQuery query) {
         long startedAt = System.nanoTime();
 
-        JsonNode body = http.getForObject(buildUrl(query), JsonNode.class);
-        Optional<String> error = parser.readError(body);
-        if (error.isPresent()) {
-            return ProviderResult.failure(CODE, query, error.get(), elapsedMillis(startedAt));
+        // The cache takes a single destination per call, so a combined query ("GIG,SDU") is asked
+        // airport by airport. The calls are free, so this costs nothing but a few milliseconds.
+        List<Itinerary> offers = new java.util.ArrayList<>();
+        for (String destination : query.destinations()) {
+            SearchQuery single = query.forDestination(destination);
+            JsonNode body = http.getForObject(buildUrl(single), JsonNode.class);
+            Optional<String> error = parser.readError(body);
+            if (error.isPresent()) {
+                return ProviderResult.failure(CODE, query, error.get(), elapsedMillis(startedAt));
+            }
+            offers.addAll(parser.parse(body, single, CODE));
         }
-
-        List<Itinerary> offers = parser.parse(body, query, CODE);
         log.info("SEARCH_COMPLETED provider={} query={} offers={} elapsed={}ms",
                 CODE, query.describe(), offers.size(), elapsedMillis(startedAt));
         return ProviderResult.success(CODE, query, offers, elapsedMillis(startedAt));

@@ -20,9 +20,12 @@ name: Scheduled flight search
 
 on:
   schedule:
-    # Twice a day, matching SEARCH_INTERVAL_HOURS=12. Times are UTC and are best-effort:
+    # Once a day, matching SEARCH_INTERVAL_HOURS=24. Airport rotation changes by calendar day, so a
+    # second daily run would only repeat the same searches and spend quota twice. 11:23 UTC is
+    # 08:23 in Brasilia; off the top of the hour, where GitHub's queue is most congested.
+    # Times are UTC and are best-effort:
     # GitHub delays scheduled runs under load, and disables them after 60 days of repo inactivity.
-    - cron: '0 5,17 * * *'
+    - cron: '23 11 * * *'
   workflow_dispatch:
 
 # One search at a time: overlapping runs would double-spend the metered provider budget.

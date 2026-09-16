@@ -55,7 +55,6 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     public static final String CODE = "serpapi";
 
     private static final String DEFAULT_BASE_URL = "https://serpapi.com";
-    private static final String CURRENCY = "GBP";
 
     private final RestTemplate http;
     private final SerpApiResponseParser parser;
@@ -111,8 +110,13 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     }
 
     @Override
-    protected int callCostPerSearch() {
-        return 1 + config.maxOptionsPerSearch();
+    protected int callCostPerSearch(SearchQuery query) {
+        return 1 + optionsToResolve(query);
+    }
+
+    /** Per-trip override when present, otherwise the provider-wide setting. */
+    private int optionsToResolve(SearchQuery query) {
+        return query.maxOptions() != null ? query.maxOptions() : config.maxOptionsPerSearch();
     }
 
     @Override
@@ -125,7 +129,8 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
             return ProviderResult.failure(CODE, query, error.get(), elapsedMillis(startedAt));
         }
 
-        List<ParsedOption> outboundOptions = parser.parseOptions(outboundResponse, CURRENCY);
+        List<ParsedOption> outboundOptions =
+                parser.parseOptions(outboundResponse, query.currency());
         if (outboundOptions.isEmpty()) {
             log.info("SEARCH_COMPLETED provider={} query={} offers=0 (no options returned)",
                     CODE, query.describe());
@@ -149,10 +154,9 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                 .sorted(Comparator.comparing(option -> option.price().amount()))
                 .toList();
 
-        List<ParsedOption> cheapestFirst = withToken.stream()
-                .filter(option -> preFilter.plausible(airportsOf(option)))
-                .limit(config.maxOptionsPerSearch())
-                .toList();
+        List<ParsedOption> cheapestFirst = chooseOptionsToResolve(
+                withToken.stream().filter(option -> preFilter.plausible(airportsOf(option))).toList(),
+                query);
 
         int skipped = withToken.size() - (int) withToken.stream()
                 .filter(option -> preFilter.plausible(airportsOf(option)))
@@ -184,7 +188,7 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                         CODE, query.describe(), returnError.get());
                 continue;
             }
-            for (ParsedOption combined : parser.parseOptions(returnResponse, CURRENCY)) {
+            for (ParsedOption combined : parser.parseOptions(returnResponse, query.currency())) {
                 ParsedOption inbound = stripOutboundPrefix(combined, outbound);
                 buildItinerary(query, outbound, inbound, combined).ifPresent(itineraries::add);
             }
@@ -256,6 +260,40 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                 .build());
     }
 
+    /**
+     * Picks which outbound options are worth a paid call to resolve their return legs.
+     *
+     * <p>Always the cheapest. When there is room for more and the trip prefers a departure time,
+     * the next pick is the option leaving closest to that time — otherwise a traveller asking for
+     * a 5 a.m. flight would only ever see returns for whatever cheaper flight left at 8:25, and the
+     * early flight they actually wanted would never be priced as a round trip.
+     *
+     * @param plausible options already cleared by the route pre-filter, cheapest first
+     */
+    private List<ParsedOption> chooseOptionsToResolve(List<ParsedOption> plausible, SearchQuery query) {
+        int budget = optionsToResolve(query);
+        if (plausible.isEmpty() || budget <= 0) {
+            return List.of();
+        }
+        List<ParsedOption> chosen = new ArrayList<>();
+        chosen.add(plausible.get(0));
+
+        if (budget > 1 && query.preferredOutbound() != null) {
+            plausible.stream()
+                    .filter(option -> !chosen.contains(option))
+                    .filter(option -> option.segments().get(0).departureAt() != null)
+                    .min(Comparator.comparingLong(option -> Math.abs(java.time.Duration.between(
+                            query.preferredOutbound(),
+                            option.segments().get(0).departureAt().toLocalTime()).toMinutes())))
+                    .ifPresent(chosen::add);
+        }
+        plausible.stream()
+                .filter(option -> !chosen.contains(option))
+                .limit(Math.max(0, budget - chosen.size()))
+                .forEach(chosen::add);
+        return chosen;
+    }
+
     /** Every airport an outbound option touches, including the layovers the source listed. */
     private static java.util.Set<String> airportsOf(ParsedOption option) {
         java.util.Set<String> airports = new java.util.LinkedHashSet<>();
@@ -273,7 +311,7 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                 .queryParam("departure_id", query.origin())
                 .queryParam("arrival_id", query.destination())
                 .queryParam("outbound_date", query.departureDate())
-                .queryParam("currency", CURRENCY)
+                .queryParam("currency", query.currency())
                 .queryParam("hl", "en")
                 .queryParam("adults", query.adults())
                 .queryParam("travel_class", travelClassCode(query.cabinClass()))
@@ -284,6 +322,12 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
         }
         if (departureToken != null) {
             builder.queryParam("departure_token", departureToken);
+        }
+        if (query.hasOutboundWindow()) {
+            // Filter at the source rather than paying to fetch afternoon flights and discard them.
+            // Each number is the start of an hour: "0,11" means 00:00 through 11:59.
+            builder.queryParam("outbound_times",
+                    query.outboundFrom().getHour() + "," + query.outboundTo().getHour());
         }
         // encode(), not build(true): departure_token is Base64 and carries '=' (and can carry '+'
         // and '/'), which are not valid raw in a query string. Declaring the components
