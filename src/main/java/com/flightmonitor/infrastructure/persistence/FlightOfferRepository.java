@@ -32,12 +32,11 @@ public interface FlightOfferRepository extends JpaRepository<FlightOfferEntity, 
     BigDecimal findAllTimeLowPrice(@Param("tripId") String tripId);
 
     /**
-     * Cheapest accepted offer landing at one of the trip's intended airports. This is the yardstick
-     * an alternative airport has to beat before it is worth telling anyone about.
+     * Cheapest accepted offer that uses no alternative airport at either end. This is the yardstick
+     * an alternative has to beat before it is worth telling anyone about — landing in São Paulo, or
+     * flying home from there, is only news when it clearly undercuts the plan as intended.
      */
     @Query("select min(o.currentPriceGbp) from FlightOfferEntity o "
-            + "where o.tripId = :tripId and o.accepted = true "
-            + "and o.destinationAirport in :destinations")
-    BigDecimal findBestPriceForDestinations(
-            @Param("tripId") String tripId, @Param("destinations") List<String> destinations);
+            + "where o.tripId = :tripId and o.accepted = true and o.alternative = false")
+    BigDecimal findBestPrimaryPrice(@Param("tripId") String tripId);
 }

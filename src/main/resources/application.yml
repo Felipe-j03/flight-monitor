@@ -78,36 +78,82 @@ flight-monitor:
   # several journeys at once; each is searched, stored and alerted on independently.
   # ---------------------------------------------------------------------------------------------
   trips:
-    - id: ${TRIP_ID:tokyo-poa-2027}
-      name: ${TRIP_NAME:Tokyo -> Porto Alegre (Jan 2027)}
-      enabled: true
-      origin-airports: ${ORIGIN_AIRPORTS:HND,NRT}
-      destination-airports: ${DESTINATION_AIRPORTS:POA,FLN,CWB,GRU}
-      # Anything outside this list is flagged as an alternative airport in the alert.
-      primary-destinations: ${PRIMARY_DESTINATIONS:POA}
+    # The Tokyo plan is two tickets, monitored separately:
+    #   1. international, one multi-city ticket: Tokyo -> Rio on 09/01, Porto Alegre -> Tokyo on 19/01
+    #   2. domestic, one way: Rio -> Porto Alegre on 13/01
+    # A single three-leg ticket was priced on 2026-09-16 and came to GBP 2,359 at best, above the
+    # GBP 2,000 ceiling, while the two tickets bought apart cost about GBP 1,608 + R$ 247.
 
-      target-departure-date: ${TARGET_DEPARTURE_DATE:2027-01-09}
-      departure-flex-days: ${DEPARTURE_FLEX_DAYS:2}
-      return-window-start: ${RETURN_WINDOW_START:2027-01-16}
-      return-window-end: ${RETURN_WINDOW_END:2027-01-21}
+    - id: ${TOKYO_TRIP_ID:tokyo-rio-poa-2027}
+      name: ${TOKYO_TRIP_NAME:Tokyo -> Rio / Porto Alegre -> Tokyo (Jan 2027)}
+      enabled: ${TOKYO_ENABLED:true}
+      origin-airports: ${TOKYO_ORIGIN_AIRPORTS:HND,NRT}
+      destination-airports: ${TOKYO_DESTINATION_AIRPORTS:GIG,SDU}
+      primary-destinations: ${TOKYO_DESTINATION_AIRPORTS:GIG,SDU}
+      # Both Tokyo airports and both Rio airports in a single metered call.
+      combine-origins: true
+      combine-destinations: true
+
+      # Fixed days, as agreed: no flexibility either way.
+      target-departure-date: ${TOKYO_DEPARTURE_DATE:2027-01-09}
+      departure-flex-days: 0
+      return-window-start: ${TOKYO_RETURN_DATE:2027-01-19}
+      return-window-end: ${TOKYO_RETURN_DATE:2027-01-19}
+
+      # Open jaw: the flight home leaves from Porto Alegre, not from Rio where the outbound lands.
+      return-origin-airports: ${TOKYO_RETURN_FROM:POA}
+      return-destination-airports: ${TOKYO_ORIGIN_AIRPORTS:HND,NRT}
+      # Optional: fly home from Sao Paulo or Rio instead. Only alerted when at least
+      # alerts.alternative-destination-min-saving-gbp cheaper than going home from POA, and only
+      # searched every other day so the free quota holds.
+      alternative-return-origins: ${TOKYO_ALTERNATIVE_RETURN_FROM:GRU,GIG,SDU}
+      alternative-every-days: 2
 
       # HARD deadline for being physically back in Japan. Compared against the return leg's
       # ARRIVAL instant, not its departure. Offset is explicit, so no timezone is ever assumed.
-      latest-return-arrival: ${LATEST_RETURN_ARRIVAL:2027-01-23T23:59:00+09:00}
-      # Arrivals inside this margin are accepted but flagged and scored lower.
-      minimum-return-buffer-hours: ${MINIMUM_RETURN_BUFFER_HOURS:12}
+      latest-return-arrival: ${TOKYO_LATEST_RETURN_ARRIVAL:2027-01-23T23:59:00+09:00}
+      minimum-return-buffer-hours: 12
 
-      target-min-price: ${TARGET_MIN_PRICE_GBP:1300}
-      target-max-price: ${TARGET_MAX_PRICE_GBP:1500}
+      # Total for the whole multi-city ticket. Below 1,700 is excellent; 1,700-2,000 is within
+      # budget; above 2,000 is discarded outright and never resolved with a paid call.
+      target-min-price: ${TOKYO_EXCELLENT_BELOW_GBP:1700}
+      target-max-price: ${TOKYO_MAX_PRICE_GBP:2000}
       budget-currency: GBP
+      discard-above-budget: true
 
-      excellent-duration-hours: ${EXCELLENT_DURATION_HOURS:30}
-      max-preferred-duration-hours: ${MAX_PREFERRED_DURATION_HOURS:36}
-      long-duration-hours: ${LONG_DURATION_HOURS:42}
-      max-absolute-duration-hours: ${MAX_ABSOLUTE_DURATION_HOURS:48}
+      excellent-duration-hours: 30
+      max-preferred-duration-hours: 36
+      long-duration-hours: 42
+      max-absolute-duration-hours: 48
 
       adults: ${ADULTS:1}
       cabin-class: ${CABIN_CLASS:ECONOMY}
+
+    - id: ${TOKYO_DOMESTIC_TRIP_ID:rio-poa-2027-01-13}
+      name: ${TOKYO_DOMESTIC_TRIP_NAME:Rio -> Porto Alegre, one way (13 Jan 2027)}
+      enabled: ${TOKYO_DOMESTIC_ENABLED:true}
+      origin-airports: ${TOKYO_DOMESTIC_FROM:GIG,SDU}
+      destination-airports: ${TOKYO_DOMESTIC_TO:POA}
+      primary-destinations: ${TOKYO_DOMESTIC_TO:POA}
+      combine-origins: true
+      combine-destinations: true
+
+      # One way: no return window and no return deadline.
+      target-departure-date: ${TOKYO_DOMESTIC_DATE:2027-01-13}
+      departure-flex-days: 0
+
+      # Reais, converted with the day's live rate. Up to R$ 350; below R$ 250 is excellent.
+      target-min-price: ${TOKYO_DOMESTIC_EXCELLENT_BELOW:250}
+      target-max-price: ${TOKYO_DOMESTIC_MAX_PRICE:350}
+      budget-currency: BRL
+
+      excellent-duration-hours: 4
+      max-preferred-duration-hours: 6
+      long-duration-hours: 8
+      max-absolute-duration-hours: 12
+
+      adults: ${ADULTS:1}
+      cabin-class: ECONOMY
 
     # Domestic hop to Rio. Kept separate from the Tokyo trip: its own id (so the two price
     # histories never mix), its own budget in reais, and its own time-of-day preferences.
@@ -189,7 +235,7 @@ flight-monitor:
     # An airport outside primary-destinations means a connecting flight, a bus or a night in
     # another city. It only earns a message when it beats the best known primary-airport price by
     # at least this much. Below the bar it is still stored and visible, just silent.
-    alternative-destination-min-saving-gbp: ${ALTERNATIVE_DESTINATION_MIN_SAVING_GBP:150}
+    alternative-destination-min-saving-gbp: ${ALTERNATIVE_DESTINATION_MIN_SAVING_GBP:200}
 
   # ---------------------------------------------------------------------------------------------
   # RANKING WEIGHTS — each component is normalised to 0..1 and multiplied by its weight.

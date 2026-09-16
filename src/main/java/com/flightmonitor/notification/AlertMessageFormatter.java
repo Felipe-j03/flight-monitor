@@ -88,8 +88,19 @@ public class AlertMessageFormatter {
     }
 
     private String route(FlightOfferEntity offer) {
-        return escape(cityOf(offer.originAirport) + " (" + offer.originAirport + ")"
-                + " → " + cityOf(offer.destinationAirport) + " (" + offer.destinationAirport + ")");
+        String outbound = cityOf(offer.originAirport) + " (" + offer.originAirport + ")"
+                + " → " + cityOf(offer.destinationAirport) + " (" + offer.destinationAirport + ")";
+        // Open jaw: the way home starts somewhere else, and the message must say where, or an
+        // "arrive in Rio, fly home from Porto Alegre" ticket reads like a plain return from Rio.
+        boolean openJaw = offer.returnOriginAirport != null
+                && !offer.returnOriginAirport.equals(offer.destinationAirport);
+        if (!openJaw) {
+            return escape(outbound);
+        }
+        return escape("Ida: " + outbound + "\nVolta: "
+                + cityOf(offer.returnOriginAirport) + " (" + offer.returnOriginAirport + ")"
+                + " → " + cityOf(offer.returnDestinationAirport)
+                + " (" + offer.returnDestinationAirport + ")");
     }
 
     /**
@@ -341,7 +352,14 @@ public class AlertMessageFormatter {
                 + "Destinos: " + escape(String.join(", ", trip.destinationAirports())) + "\n"
                 + "Ida alvo: " + DATE.format(trip.targetDepartureDate())
                 + " (±" + trip.departureFlexDays() + "d)\n"
-                + "Retorno até: " + DATE_TIME.format(trip.latestReturnArrival()) + "\n"
+                + (trip.isOneWay()
+                        ? "Só ida\n"
+                        : (trip.isOpenJaw()
+                                ? "Volta: " + escape(String.join(", ", trip.returnOriginAirports()))
+                                        + " → " + escape(String.join(", ", trip.returnDestinations()))
+                                        + " em " + DATE.format(trip.returnWindowStart()) + "\n"
+                                : "")
+                                + "Retorno até: " + DATE_TIME.format(trip.latestReturnArrival()) + "\n")
                 + "Orçamento: " + money(trip.targetMinPrice(), trip.budgetCurrency())
                 + " – " + money(trip.targetMaxPrice(), trip.budgetCurrency()) + "\n"
                 + "Providers ativos (" + providerCount + "): " + escape(providerNames);

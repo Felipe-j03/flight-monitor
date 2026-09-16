@@ -64,6 +64,11 @@ public final class DateWindowRule {
             }
         }
 
+        if (trip.isOneWay()) {
+            // Nothing to check on the way back: there is no way back on this ticket.
+            return new Result(rejections, warnings);
+        }
+
         if (!itinerary.isRoundTrip()) {
             rejections.add(Rejection.of(
                     RejectionReason.MISSING_RETURN_LEG, "source=" + itinerary.source()));

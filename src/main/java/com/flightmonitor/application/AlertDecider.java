@@ -102,7 +102,9 @@ public final class AlertDecider {
     private boolean alternativeAirportIsWorthIt(
             OfferEvaluation evaluation, BigDecimal bestPrimaryPriceGbp) {
 
-        if (!trip.isAlternativeDestination(evaluation.itinerary().destinationAirport())) {
+        // Covers both kinds of alternative: landing somewhere else, and flying home from somewhere
+        // else. The evaluator decides which applies; this only weighs whether the saving is real.
+        if (!evaluation.alternative()) {
             return true;
         }
         if (bestPrimaryPriceGbp == null) {

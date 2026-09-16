@@ -8,6 +8,7 @@ import com.flightmonitor.domain.model.Itinerary;
 import com.flightmonitor.domain.model.OfferEvaluation;
 import com.flightmonitor.domain.model.PriceBand;
 import com.flightmonitor.domain.model.Rejection;
+import com.flightmonitor.domain.model.RejectionReason;
 import com.flightmonitor.domain.port.AirportCatalog;
 import com.flightmonitor.domain.scoring.OfferScorer;
 import java.util.ArrayList;
@@ -53,13 +54,29 @@ public final class OfferEvaluator {
 
         rejections.addAll(durationRule.check(itinerary));
 
+        // A hard ceiling: above it the offer is not "over budget", it is out of the question.
+        if (trip.discardAboveBudget()
+                && itinerary.price().gbpAmount().compareTo(trip.targetMaxPriceGbp()) > 0) {
+            rejections.add(Rejection.of(RejectionReason.PRICE_ABOVE_LIMIT,
+                    "price=GBP" + itinerary.price().gbpAmount()
+                            + " limit=GBP" + trip.targetMaxPriceGbp()));
+        }
+
         if (!rejections.isEmpty()) {
             return OfferEvaluation.rejected(itinerary, rejections);
         }
 
+        boolean alternative = false;
         if (trip.isAlternativeDestination(itinerary.destinationAirport())) {
+            alternative = true;
             warnings.add("Alternative arrival airport: " + itinerary.destinationAirport()
                     + " (primary: " + String.join("/", trip.primaryDestinations()) + ")");
+        }
+        String returnOrigin = itinerary.inbound() == null ? null : itinerary.inbound().originAirport();
+        if (trip.isAlternativeReturnOrigin(returnOrigin)) {
+            alternative = true;
+            warnings.add("Alternative return: flies home from " + returnOrigin
+                    + " (primary: " + String.join("/", trip.returnOriginAirports()) + ")");
         }
         if (!itinerary.baggage().known()) {
             warnings.add("Baggage information unavailable");
@@ -83,7 +100,8 @@ public final class OfferEvaluator {
                 durationBand,
                 score.total(),
                 score.breakdown(),
-                warnings);
+                warnings,
+                alternative);
     }
 
     public TripConfig trip() {

@@ -14,6 +14,15 @@ import java.util.List;
  * changing this block re-points the monitor at a different trip with no code change. Multiple
  * blocks can be configured and are monitored independently.
  *
+ * <p>Three shapes are supported:
+ * <ul>
+ *   <li><b>round trip</b> — back from where you arrived (the default);</li>
+ *   <li><b>open jaw</b> — {@code returnOriginAirports} set: the return leaves from somewhere other
+ *       than where the outbound landed (e.g. arrive in Rio, fly home from Porto Alegre). Priced as
+ *       one multi-city ticket;</li>
+ *   <li><b>one way</b> — no return window at all.</li>
+ * </ul>
+ *
  * @param id                       stable key used in the database and in log lines; must be unique
  * @param originAirports           IATA codes to depart from, all searched
  * @param destinationAirports      IATA codes to arrive at, all searched
@@ -21,27 +30,35 @@ import java.util.List;
  *                                 is flagged as an alternative airport in notifications
  * @param targetDepartureDate      the ideal outbound date
  * @param departureFlexDays        how many days either side of the target are acceptable
- * @param returnWindowStart        earliest acceptable return departure date
- * @param returnWindowEnd          latest acceptable return departure date
- * @param latestReturnArrival      hard deadline for being physically back, with offset
+ * @param returnWindowStart        earliest acceptable return departure date; null for one way
+ * @param returnWindowEnd          latest acceptable return departure date; null for one way
+ * @param latestReturnArrival      hard deadline for being physically back, with offset; null for
+ *                                 one way
  * @param minimumReturnBufferHours safety margin subtracted from the hard deadline to get the
  *                                 preferred deadline; arrivals inside the margin are accepted but
  *                                 flagged, arrivals past the hard deadline are rejected
  * @param targetMinPrice           below this is "excellent", in {@code budgetCurrency}
  * @param targetMaxPrice           above this is "over budget", in {@code budgetCurrency}
- * @param budgetCurrency           ISO code the budget is expressed in. A domestic Brazilian trip is
- *                                 naturally budgeted in reais; prices are still compared in GBP
+ * @param budgetCurrency           ISO code the budget is expressed in. Prices are compared in GBP
  *                                 internally, after converting the budget with a live rate
  * @param outboundDepartureFrom    optional hard window: outbound must leave at or after this local
  *                                 time at the departure airport
  * @param outboundDepartureTo      optional hard window: outbound must leave at or before this
  * @param outboundPreferredDeparture optional soft target: closer departures rank higher
  * @param returnPreferredDeparture optional soft target for the return leg's departure time
- * @param combineDestinations      search every destination airport in a single query. Worth it for
- *                                 a city served by several airports (Rio: GIG and SDU), where one
- *                                 metered call can cover all of them
+ * @param combineDestinations      search every destination airport in a single query
  * @param maxOptionsPerSearch      optional per-trip override of how many outbound options get their
- *                                 return legs resolved (each costs one extra metered call)
+ *                                 next leg resolved (each costs one extra metered call)
+ * @param combineOrigins           search every origin airport in a single query
+ * @param returnOriginAirports     open jaw: where the return leg leaves from, when that is not where
+ *                                 the outbound landed
+ * @param returnDestinationAirports open jaw: where the return leg lands; defaults to the origins
+ * @param alternativeReturnOrigins optional alternative return departure airports (e.g. fly home
+ *                                 from São Paulo instead of Porto Alegre). Searched as a separate
+ *                                 variant and only alerted when clearly cheaper
+ * @param alternativeEveryDays     search the alternative variant only every N days, to fit the quota
+ * @param discardAboveBudget       treat {@code targetMaxPrice} as a hard cap: anything above it is
+ *                                 rejected, and not worth a paid call to resolve
  */
 public record TripConfig(
         String id,
@@ -70,7 +87,13 @@ public record TripConfig(
         LocalTime outboundPreferredDeparture,
         LocalTime returnPreferredDeparture,
         boolean combineDestinations,
-        Integer maxOptionsPerSearch) {
+        Integer maxOptionsPerSearch,
+        boolean combineOrigins,
+        List<String> returnOriginAirports,
+        List<String> returnDestinationAirports,
+        List<String> alternativeReturnOrigins,
+        int alternativeEveryDays,
+        boolean discardAboveBudget) {
 
     private static final String GBP = "GBP";
 
@@ -80,6 +103,10 @@ public record TripConfig(
         primaryDestinations = primaryDestinations == null || primaryDestinations.isEmpty()
                 ? destinationAirports.isEmpty() ? List.of() : List.of(destinationAirports.get(0))
                 : upperCase(primaryDestinations);
+        returnOriginAirports = upperCase(returnOriginAirports);
+        returnDestinationAirports = upperCase(returnDestinationAirports);
+        alternativeReturnOrigins = upperCase(alternativeReturnOrigins);
+        alternativeEveryDays = alternativeEveryDays <= 0 ? 1 : alternativeEveryDays;
         adults = adults <= 0 ? 1 : adults;
         cabinClass = cabinClass == null ? "ECONOMY" : cabinClass.toUpperCase();
         budgetCurrency = budgetCurrency == null || budgetCurrency.isBlank()
@@ -93,16 +120,28 @@ public record TripConfig(
         require(!originAirports.isEmpty(), "originAirports must not be empty");
         require(!destinationAirports.isEmpty(), "destinationAirports must not be empty");
         require(departureFlexDays >= 0, "departureFlexDays must not be negative");
-        require(!returnWindowStart.isAfter(returnWindowEnd),
-                "returnWindowStart (" + returnWindowStart + ") is after returnWindowEnd ("
-                        + returnWindowEnd + ")");
-        require(returnWindowStart.isAfter(targetDepartureDate.plusDays(departureFlexDays)),
-                "returnWindowStart (" + returnWindowStart + ") must be after the last possible "
-                        + "departure (" + targetDepartureDate.plusDays(departureFlexDays) + ")");
-        require(latestReturnArrival.toLocalDate().isAfter(returnWindowStart)
-                        || latestReturnArrival.toLocalDate().isEqual(returnWindowStart),
-                "latestReturnArrival (" + latestReturnArrival + ") is before the return window "
-                        + "even opens (" + returnWindowStart + ")");
+
+        boolean oneWay = returnWindowStart == null && returnWindowEnd == null;
+        require(oneWay || (returnWindowStart != null && returnWindowEnd != null),
+                "returnWindowStart and returnWindowEnd must be set together");
+        if (oneWay) {
+            require(returnOriginAirports.isEmpty() && alternativeReturnOrigins.isEmpty(),
+                    "a one-way trip cannot have return airports");
+        } else {
+            require(latestReturnArrival != null, "latestReturnArrival is required for a return trip");
+            require(!returnWindowStart.isAfter(returnWindowEnd),
+                    "returnWindowStart (" + returnWindowStart + ") is after returnWindowEnd ("
+                            + returnWindowEnd + ")");
+            require(returnWindowStart.isAfter(targetDepartureDate.plusDays(departureFlexDays)),
+                    "returnWindowStart (" + returnWindowStart + ") must be after the last possible "
+                            + "departure (" + targetDepartureDate.plusDays(departureFlexDays) + ")");
+            require(latestReturnArrival.toLocalDate().isAfter(returnWindowStart)
+                            || latestReturnArrival.toLocalDate().isEqual(returnWindowStart),
+                    "latestReturnArrival (" + latestReturnArrival + ") is before the return window "
+                            + "even opens (" + returnWindowStart + ")");
+        }
+        require(alternativeReturnOrigins.isEmpty() || !returnOriginAirports.isEmpty(),
+                "alternativeReturnOrigins needs returnOriginAirports (an open-jaw trip)");
         require(minimumReturnBufferHours >= 0, "minimumReturnBufferHours must not be negative");
         require(targetMinPrice.compareTo(targetMaxPrice) <= 0,
                 "targetMinPrice must not exceed targetMaxPrice");
@@ -126,7 +165,36 @@ public record TripConfig(
     }
 
     private static List<String> upperCase(List<String> codes) {
-        return codes == null ? List.of() : codes.stream().map(c -> c.trim().toUpperCase()).toList();
+        return codes == null
+                ? List.of()
+                : codes.stream()
+                        .filter(code -> code != null && !code.isBlank())
+                        .map(code -> code.trim().toUpperCase())
+                        .toList();
+    }
+
+    public boolean isOneWay() {
+        return returnWindowStart == null;
+    }
+
+    /** The return leaves from somewhere other than where the outbound landed. */
+    public boolean isOpenJaw() {
+        return !isOneWay() && !returnOriginAirports.isEmpty();
+    }
+
+    /** Where the return lands: configured explicitly, or back to the origins. */
+    public List<String> returnDestinations() {
+        return returnDestinationAirports.isEmpty() ? originAirports : returnDestinationAirports;
+    }
+
+    public boolean hasAlternativeReturn() {
+        return isOpenJaw() && !alternativeReturnOrigins.isEmpty();
+    }
+
+    public boolean isAlternativeReturnOrigin(String iata) {
+        return iata != null && hasAlternativeReturn()
+                && alternativeReturnOrigins.contains(iata.toUpperCase())
+                && !returnOriginAirports.contains(iata.toUpperCase());
     }
 
     public LocalDate earliestDeparture() {
@@ -142,7 +210,9 @@ public record TripConfig(
      * this but before {@link #latestReturnArrival()} is allowed, just scored lower.
      */
     public OffsetDateTime preferredReturnArrival() {
-        return latestReturnArrival.minusHours(minimumReturnBufferHours);
+        return latestReturnArrival == null
+                ? null
+                : latestReturnArrival.minusHours(minimumReturnBufferHours);
     }
 
     /**
@@ -208,7 +278,9 @@ public record TripConfig(
                 maxAbsoluteDurationHours, adults, cabinClass,
                 outboundDepartureFrom, outboundDepartureTo,
                 outboundPreferredDeparture, returnPreferredDeparture,
-                combineDestinations, maxOptionsPerSearch);
+                combineDestinations, maxOptionsPerSearch,
+                combineOrigins, returnOriginAirports, returnDestinationAirports,
+                alternativeReturnOrigins, alternativeEveryDays, discardAboveBudget);
     }
 
     public Duration excellentDuration() {

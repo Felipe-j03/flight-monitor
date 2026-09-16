@@ -92,17 +92,25 @@ public class TravelpayoutsProvider extends AbstractHttpFlightProvider {
     protected ProviderResult performSearch(SearchQuery query) {
         long startedAt = System.nanoTime();
 
-        // The cache takes a single destination per call, so a combined query ("GIG,SDU") is asked
-        // airport by airport. The calls are free, so this costs nothing but a few milliseconds.
+        // The cache only knows plain round trips and one-ways. Answering an open-jaw question with
+        // a round-trip fare would price a different journey, so it is declined, not approximated.
+        if (query.isOpenJaw()) {
+            return ProviderResult.skipped(CODE, query, "open-jaw (multi-city) is not supported");
+        }
+
+        // The cache takes a single airport per side, so a combined query ("HND,NRT" to "GIG,SDU")
+        // is asked pair by pair. The calls are free, so this costs nothing but a few milliseconds.
         List<Itinerary> offers = new java.util.ArrayList<>();
-        for (String destination : query.destinations()) {
-            SearchQuery single = query.forDestination(destination);
-            JsonNode body = http.getForObject(buildUrl(single), JsonNode.class);
-            Optional<String> error = parser.readError(body);
-            if (error.isPresent()) {
-                return ProviderResult.failure(CODE, query, error.get(), elapsedMillis(startedAt));
+        for (String origin : query.origins()) {
+            for (String destination : query.destinations()) {
+                SearchQuery single = query.forOrigin(origin).forDestination(destination);
+                JsonNode body = http.getForObject(buildUrl(single), JsonNode.class);
+                Optional<String> error = parser.readError(body);
+                if (error.isPresent()) {
+                    return ProviderResult.failure(CODE, query, error.get(), elapsedMillis(startedAt));
+                }
+                offers.addAll(parser.parse(body, single, CODE));
             }
-            offers.addAll(parser.parse(body, single, CODE));
         }
         log.info("SEARCH_COMPLETED provider={} query={} offers={} elapsed={}ms",
                 CODE, query.describe(), offers.size(), elapsedMillis(startedAt));

@@ -217,6 +217,10 @@ public class OfferStore {
         entity.arrivalLocalDate = localDate(itinerary.arrivalAt());
         entity.returnDepartureLocalDate = localDate(itinerary.returnDepartureAt());
         entity.returnArrivalLocalTime = localDateTime(itinerary.returnArrivalAt());
+        entity.returnOriginAirport =
+                itinerary.inbound() == null ? null : itinerary.inbound().originAirport();
+        entity.returnDestinationAirport =
+                itinerary.inbound() == null ? null : itinerary.inbound().destinationAirport();
         entity.airlines = join(itinerary.airlines(), 255);
         entity.flightNumbers = join(itinerary.flightNumbers(), 500);
         entity.outboundStops = itinerary.outbound().stops();
@@ -247,6 +251,7 @@ public class OfferStore {
 
     private void applyEvaluation(FlightOfferEntity entity, OfferEvaluation evaluation) {
         entity.accepted = evaluation.accepted();
+        entity.alternative = evaluation.alternative();
         entity.rejectionReasons = truncate(evaluation.rejectionSummary(), 1000);
         entity.warnings = truncate(String.join(" | ", evaluation.warnings()), 1000);
         entity.priceBand = evaluation.priceBand() == null ? null : evaluation.priceBand().name();

@@ -9,6 +9,10 @@ import java.util.Map;
  *
  * <p>Rejected offers are still produced — they are logged and counted, they just never reach the
  * ranking or an alert.
+ *
+ * @param alternative the itinerary uses an alternative airport — landing somewhere other than the
+ *                    intended destination, or flying home from somewhere other than planned. Such
+ *                    offers only alert when clearly cheaper than the best primary one
  */
 public record OfferEvaluation(
         Itinerary itinerary,
@@ -18,7 +22,8 @@ public record OfferEvaluation(
         DurationBand durationBand,
         double score,
         Map<String, Double> scoreBreakdown,
-        List<String> warnings) {
+        List<String> warnings,
+        boolean alternative) {
 
     public OfferEvaluation {
         rejections = rejections == null ? List.of() : List.copyOf(rejections);
@@ -28,7 +33,7 @@ public record OfferEvaluation(
 
     public static OfferEvaluation rejected(Itinerary itinerary, List<Rejection> rejections) {
         return new OfferEvaluation(
-                itinerary, false, rejections, null, null, 0.0, Map.of(), List.of());
+                itinerary, false, rejections, null, null, 0.0, Map.of(), List.of(), false);
     }
 
     public String rejectionSummary() {

@@ -38,29 +38,15 @@ public class QueryPlanner {
                 !departure.isAfter(trip.latestDeparture());
                 departure = departure.plusDays(1)) {
 
-            for (LocalDate returnDate = trip.returnWindowStart();
-                    !returnDate.isAfter(trip.returnWindowEnd());
-                    returnDate = returnDate.plusDays(1)) {
-
-                if (!returnDate.isAfter(departure)) {
+            for (LocalDate returnDate : returnDatesFor(trip)) {
+                if (returnDate != null && !returnDate.isAfter(departure)) {
                     continue;
                 }
-                for (String origin : trip.originAirports()) {
+                for (String origin : originsFor(trip)) {
                     for (String destination : destinationsFor(trip)) {
-                        queries.add(new SearchQuery(
-                                trip.id(),
-                                origin,
-                                destination,
-                                departure,
-                                returnDate,
-                                trip.adults(),
-                                trip.cabinClass(),
-                                priority(trip, departure, returnDate, destination),
-                                trip.budgetCurrency(),
-                                trip.outboundDepartureFrom(),
-                                trip.outboundDepartureTo(),
-                                trip.outboundPreferredDeparture(),
-                                trip.maxOptionsPerSearch()));
+                        queries.add(query(trip, origin, destination, departure, returnDate,
+                                trip.isOpenJaw() ? String.join(",", trip.returnOriginAirports()) : null,
+                                priority(trip, departure, returnDate, destination)));
                     }
                 }
             }
@@ -80,7 +66,79 @@ public class QueryPlanner {
                 .sorted(byPriority)
                 .toList();
 
-        return merge(primary, alternative, Math.max(1, maxQueries));
+        List<SearchQuery> plan = merge(primary, alternative, Math.max(1, maxQueries));
+        return withAlternativeReturn(trip, plan, Math.max(1, maxQueries));
+    }
+
+    /**
+     * Adds the "fly home from somewhere else" variant of an open-jaw trip, on the days it is due.
+     *
+     * <p>It goes second, where a two-query provider still reaches it, and only every
+     * {@code alternativeEveryDays} days: it is a long shot that is only worth hearing about when it
+     * is clearly cheaper, so it gets a fraction of the budget rather than an equal share.
+     */
+    private List<SearchQuery> withAlternativeReturn(
+            TripConfig trip, List<SearchQuery> plan, int maxQueries) {
+        if (!trip.hasAlternativeReturn() || plan.isEmpty()) {
+            return plan;
+        }
+        if (LocalDate.now(clock).getDayOfYear() % trip.alternativeEveryDays() != 0) {
+            return plan;
+        }
+        SearchQuery base = plan.get(0);
+        SearchQuery variant = query(trip, base.origin(), base.destination(), base.departureDate(),
+                base.returnDate(), String.join(",", trip.alternativeReturnOrigins()),
+                base.priority() + 20);
+
+        List<SearchQuery> withVariant = new ArrayList<>(plan);
+        withVariant.add(1, variant);
+        return List.copyOf(withVariant.subList(0, Math.min(withVariant.size(), maxQueries)));
+    }
+
+    private static SearchQuery query(
+            TripConfig trip,
+            String origin,
+            String destination,
+            LocalDate departure,
+            LocalDate returnDate,
+            String returnOrigin,
+            int priority) {
+        String returnDestination = returnOrigin == null || trip.returnDestinationAirports().isEmpty()
+                ? null
+                : String.join(",", trip.returnDestinationAirports());
+        return new SearchQuery(
+                trip.id(),
+                origin,
+                destination,
+                departure,
+                returnDate,
+                trip.adults(),
+                trip.cabinClass(),
+                priority,
+                trip.budgetCurrency(),
+                trip.outboundDepartureFrom(),
+                trip.outboundDepartureTo(),
+                trip.outboundPreferredDeparture(),
+                trip.maxOptionsPerSearch(),
+                returnOrigin,
+                returnDestination,
+                trip.discardAboveBudget() ? trip.targetMaxPrice() : null);
+    }
+
+    /** One-way trips have a single "no return" slot; round trips one per day in the window. */
+    private static List<LocalDate> returnDatesFor(TripConfig trip) {
+        if (trip.isOneWay()) {
+            List<LocalDate> none = new ArrayList<>();
+            none.add(null);
+            return none;
+        }
+        return trip.returnWindowStart().datesUntil(trip.returnWindowEnd().plusDays(1)).toList();
+    }
+
+    private static List<String> originsFor(TripConfig trip) {
+        return trip.combineOrigins()
+                ? List.of(String.join(",", trip.originAirports()))
+                : trip.originAirports();
     }
 
     /**
@@ -172,8 +230,9 @@ public class QueryPlanner {
 
         int departureOffset = (int) Math.abs(
                 ChronoUnit.DAYS.between(trip.targetDepartureDate(), departure));
-        int returnOffset = (int) Math.abs(
-                ChronoUnit.DAYS.between(trip.returnWindowEnd(), returnDate));
+        int returnOffset = returnDate == null
+                ? 0
+                : (int) Math.abs(ChronoUnit.DAYS.between(trip.returnWindowEnd(), returnDate));
         int alternativeAirportPenalty = trip.isAlternativeDestination(destination) ? 20 : 0;
 
         return departureOffset * 10 + returnOffset + alternativeAirportPenalty;

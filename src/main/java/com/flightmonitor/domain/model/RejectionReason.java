@@ -30,6 +30,9 @@ public enum RejectionReason {
     /** The return would land back home after the trip's hard deadline. */
     RETURN_ARRIVAL_TOO_LATE,
 
+    /** Total price is above the trip's hard cap, when the budget ceiling is configured as one. */
+    PRICE_ABOVE_LIMIT,
+
     /** Longest leg exceeds the absolute duration cap. */
     MAX_DURATION_EXCEEDED,
 

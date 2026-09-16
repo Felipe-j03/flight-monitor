@@ -31,7 +31,7 @@ public record AlertConfig(
     public AlertConfig {
         maxAlertsPerRun = maxAlertsPerRun <= 0 ? 5 : maxAlertsPerRun;
         alternativeDestinationMinSavingGbp = alternativeDestinationMinSavingGbp == null
-                ? new BigDecimal("150")
+                ? new BigDecimal("200")
                 : alternativeDestinationMinSavingGbp;
     }
 }

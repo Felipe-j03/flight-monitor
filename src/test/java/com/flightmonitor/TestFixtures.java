@@ -64,7 +64,13 @@ public final class TestFixtures {
                 null,
                 null,
                 false,
-                null);
+                null,
+                false,
+                null,
+                null,
+                null,
+                1,
+                false);
     }
 
     /** The domestic Rio trip as configured: reais, morning outbound, both Rio airports at once. */
@@ -96,7 +102,92 @@ public final class TestFixtures {
                 java.time.LocalTime.of(5, 0),
                 java.time.LocalTime.of(11, 0),
                 true,
-                2);
+                2,
+                false,
+                null,
+                null,
+                null,
+                1,
+                false);
+    }
+
+    /**
+     * The Tokyo trip as configured: one multi-city ticket, Tokyo -> Rio on 09/01 and Porto Alegre ->
+     * Tokyo on 19/01, hard-capped at GBP 2,000, with Sao Paulo or Rio as an optional way home.
+     */
+    public static TripConfig tokyoOpenJawTrip() {
+        return new TripConfig(
+                "tokyo-rio-poa-2027",
+                "Tokyo -> Rio / Porto Alegre -> Tokyo (Jan 2027)",
+                true,
+                List.of("HND", "NRT"),
+                List.of("GIG", "SDU"),
+                List.of("GIG", "SDU"),
+                LocalDate.of(2027, 1, 9),
+                0,
+                LocalDate.of(2027, 1, 19),
+                LocalDate.of(2027, 1, 19),
+                OffsetDateTime.of(2027, 1, 23, 23, 59, 0, 0, JAPAN),
+                12,
+                new BigDecimal("1700"),
+                new BigDecimal("2000"),
+                "GBP",
+                30,
+                36,
+                42,
+                48,
+                1,
+                "ECONOMY",
+                null,
+                null,
+                null,
+                null,
+                true,
+                1,
+                true,
+                List.of("POA"),
+                List.of("HND", "NRT"),
+                List.of("GRU", "GIG", "SDU"),
+                2,
+                true);
+    }
+
+    /** The domestic hop inside the Tokyo plan: Rio -> Porto Alegre, one way, 13/01, up to R$ 350. */
+    public static TripConfig rioToPoaOneWay() {
+        return new TripConfig(
+                "rio-poa-2027-01-13",
+                "Rio -> Porto Alegre, one way (13 Jan 2027)",
+                true,
+                List.of("GIG", "SDU"),
+                List.of("POA"),
+                List.of("POA"),
+                LocalDate.of(2027, 1, 13),
+                0,
+                null,
+                null,
+                null,
+                0,
+                new BigDecimal("250"),
+                new BigDecimal("350"),
+                "BRL",
+                4,
+                6,
+                8,
+                12,
+                1,
+                "ECONOMY",
+                null,
+                null,
+                null,
+                null,
+                true,
+                null,
+                true,
+                null,
+                null,
+                null,
+                1,
+                false);
     }
 
     /** Blocks the Gulf states used in the routing tests; nothing else. */
@@ -148,6 +239,7 @@ public final class TestFixtures {
         private OffsetDateTime returnDeparture = OffsetDateTime.of(2027, 1, 21, 6, 10, 0, 0, BRAZIL);
         private OffsetDateTime returnArrival = OffsetDateTime.of(2027, 1, 23, 3, 5, 0, 0, JAPAN);
         private boolean roundTrip = true;
+        private String returnOrigin;
         private Integer declaredStops;
 
         public ItineraryBuilder source(String value) {
@@ -215,8 +307,22 @@ public final class TestFixtures {
             return this;
         }
 
+        /** Moves the return departure, carrying its arrival with it. */
+        public ItineraryBuilder returnDepartingAt(OffsetDateTime value) {
+            Duration current = Duration.between(returnDeparture, returnArrival);
+            this.returnDeparture = value;
+            this.returnArrival = value.plus(current).withOffsetSameInstant(JAPAN);
+            return this;
+        }
+
         public ItineraryBuilder returningAt(OffsetDateTime value) {
             this.returnArrival = value;
+            return this;
+        }
+
+        /** Open jaw: the return leaves from this airport instead of where the outbound landed. */
+        public ItineraryBuilder returnFrom(String iata) {
+            this.returnOrigin = iata;
             return this;
         }
 
@@ -258,7 +364,8 @@ public final class TestFixtures {
                 inbound = new ItineraryLeg(
                         List.of(
                                 new FlightSegment(
-                                        destination, returnDeparture, connection,
+                                        returnOrigin == null ? destination : returnOrigin,
+                                        returnDeparture, connection,
                                         backConnectionArrival, Duration.ofHours(13),
                                         "Lufthansa", null, "LH 507", "A346", "Economy"),
                                 new FlightSegment(

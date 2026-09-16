@@ -111,7 +111,9 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
 
     @Override
     protected int callCostPerSearch(SearchQuery query) {
-        return 1 + optionsToResolve(query);
+        // A one-way search is complete after the first call; only multi-leg searches pay to
+        // resolve later legs.
+        return query.isRoundTrip() ? 1 + optionsToResolve(query) : 1;
     }
 
     /** Per-trip override when present, otherwise the provider-wide setting. */
@@ -130,7 +132,7 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
         }
 
         List<ParsedOption> outboundOptions =
-                parser.parseOptions(outboundResponse, query.currency());
+                withinCap(parser.parseOptions(outboundResponse, query.currency()), query);
         if (outboundOptions.isEmpty()) {
             log.info("SEARCH_COMPLETED provider={} query={} offers=0 (no options returned)",
                     CODE, query.describe());
@@ -261,6 +263,31 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     }
 
     /**
+     * Drops options priced above the trip's hard cap.
+     *
+     * <p>The first-leg price of a round trip or multi-city search is already the total for the
+     * cheapest completion, so an option above the cap here cannot come back under it — resolving it
+     * would only spend a call to confirm a discard. SerpApi's own {@code max_price} is deliberately
+     * not used: tested on real searches it let a £2,049 fare through and, on a second-leg call,
+     * wiped out results well under the limit.
+     */
+    private List<ParsedOption> withinCap(List<ParsedOption> options, SearchQuery query) {
+        if (query.maxPrice() == null) {
+            return options;
+        }
+        List<ParsedOption> kept = options.stream()
+                .filter(option -> option.price().amount().compareTo(query.maxPrice()) <= 0)
+                .toList();
+        int dropped = options.size() - kept.size();
+        if (dropped > 0) {
+            log.info("OFFER_REJECTED provider={} query={} reason=PRICE_ABOVE_LIMIT "
+                            + "options_dropped={} limit={} {} (not resolved, no API call spent)",
+                    CODE, query.describe(), dropped, query.currency(), query.maxPrice());
+        }
+        return kept;
+    }
+
+    /**
      * Picks which outbound options are worth a paid call to resolve their return legs.
      *
      * <p>Always the cheapest. When there is room for more and the trip prefers a departure time,
@@ -308,22 +335,30 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     private URI buildUrl(SearchQuery query, String departureToken) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/search.json")
                 .queryParam("engine", "google_flights")
-                .queryParam("departure_id", query.origin())
-                .queryParam("arrival_id", query.destination())
-                .queryParam("outbound_date", query.departureDate())
                 .queryParam("currency", query.currency())
                 .queryParam("hl", "en")
                 .queryParam("adults", query.adults())
                 .queryParam("travel_class", travelClassCode(query.cabinClass()))
-                .queryParam("type", query.isRoundTrip() ? 1 : 2)
                 .queryParam("api_key", config.apiKey());
-        if (query.isRoundTrip()) {
-            builder.queryParam("return_date", query.returnDate());
+
+        if (query.isOpenJaw()) {
+            // One multi-city ticket. Each later leg is fetched with the previous leg's
+            // departure_token, exactly like a round trip's return, and the price is the total.
+            builder.queryParam("type", 3)
+                    .queryParam("multi_city_json", multiCityJson(query));
+        } else {
+            builder.queryParam("departure_id", query.origin())
+                    .queryParam("arrival_id", query.destination())
+                    .queryParam("outbound_date", query.departureDate())
+                    .queryParam("type", query.isRoundTrip() ? 1 : 2);
+            if (query.isRoundTrip()) {
+                builder.queryParam("return_date", query.returnDate());
+            }
         }
         if (departureToken != null) {
             builder.queryParam("departure_token", departureToken);
         }
-        if (query.hasOutboundWindow()) {
+        if (query.hasOutboundWindow() && !query.isOpenJaw()) {
             // Filter at the source rather than paying to fetch afternoon flights and discard them.
             // Each number is the start of an hour: "0,11" means 00:00 through 11:59.
             builder.queryParam("outbound_times",
@@ -333,6 +368,30 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
         // and '/'), which are not valid raw in a query string. Declaring the components
         // "already encoded" made the whole request fail before it was even sent.
         return builder.build().encode().toUri();
+    }
+
+    /**
+     * The two legs of an open-jaw trip, in SerpApi's multi-city format. Airport lists stay
+     * comma-joined: SerpApi accepts several airports per leg, so HND+NRT and GIG+SDU cost one call.
+     */
+    static String multiCityJson(SearchQuery query) {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var legs = mapper.createArrayNode();
+
+        var outbound = legs.addObject()
+                .put("departure_id", query.origin())
+                .put("arrival_id", query.destination())
+                .put("date", query.departureDate().toString());
+        if (query.hasOutboundWindow()) {
+            outbound.put("times",
+                    query.outboundFrom().getHour() + "," + query.outboundTo().getHour());
+        }
+        legs.addObject()
+                .put("departure_id", query.returnOrigin())
+                .put("arrival_id",
+                        query.returnDestination() == null ? query.origin() : query.returnDestination())
+                .put("date", query.returnDate().toString());
+        return legs.toString();
     }
 
     private static int travelClassCode(String cabinClass) {
@@ -348,7 +407,12 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     private static String googleFlightsSearchUrl(SearchQuery query) {
         String q = "Flights from " + query.origin() + " to " + query.destination()
                 + " on " + query.departureDate()
-                + (query.returnDate() == null ? "" : " through " + query.returnDate());
+                + (query.isOpenJaw()
+                        ? " and from " + query.returnOrigin() + " to "
+                                + (query.returnDestination() == null
+                                        ? query.origin() : query.returnDestination())
+                                + " on " + query.returnDate()
+                        : query.returnDate() == null ? "" : " through " + query.returnDate());
         return "https://www.google.com/travel/flights?q="
                 + URLEncoder.encode(q, StandardCharsets.UTF_8);
     }

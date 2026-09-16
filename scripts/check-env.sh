@@ -87,11 +87,14 @@ fi
 
 echo
 echo "=== Viagem ==="
-printf 'origem      %s\n'  "$(value_of ORIGIN_AIRPORTS)"
-printf 'destino     %s (principal: %s)\n' "$(value_of DESTINATION_AIRPORTS)" "$(value_of PRIMARY_DESTINATIONS)"
-printf 'ida         %s (+/- %s dias)\n' "$(value_of TARGET_DEPARTURE_DATE)" "$(value_of DEPARTURE_FLEX_DAYS)"
-printf 'volta ate   %s\n'  "$(value_of LATEST_RETURN_ARRIVAL)"
-printf 'orcamento   GBP %s - %s\n' "$(value_of TARGET_MIN_PRICE_GBP)" "$(value_of TARGET_MAX_PRICE_GBP)"
+echo "As viagens ficam em src/main/resources/application.yml:"
+echo "  tokyo-rio-poa-2027   09/01 HND/NRT -> GIG/SDU + 19/01 POA -> HND/NRT, ate GBP 2000"
+echo "  rio-poa-2027-01-13   13/01 GIG/SDU -> POA, so ida, ate R\$ 350"
+echo "  poa-rio-2027         11/01 POA -> GIG/SDU, volta 13/01, ate R\$ 800"
+for key in TOKYO_MAX_PRICE_GBP TOKYO_DOMESTIC_MAX_PRICE RIO_TARGET_MAX_PRICE; do
+  v="$(value_of "$key")"
+  if [ -n "$v" ]; then printf 'override    %s=%s\n' "$key" "$v"; fi
+done
 printf 'bloqueados  %s\n'  "$(value_of BLOCKED_COUNTRIES)"
 
 echo

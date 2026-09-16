@@ -182,7 +182,8 @@ class RioTripRulesTest {
                 java.time.LocalDate.of(2027, 1, 13), java.time.LocalDate.of(2027, 1, 13),
                 OffsetDateTime.of(2027, 1, 13, 23, 59, 0, 0, TestFixtures.BRAZIL), 0,
                 BigDecimal.ONE, BigDecimal.TEN, "BRL", 4, 6, 8, 12, 1, "ECONOMY",
-                java.time.LocalTime.of(0, 0), null, null, null, true, null))
+                java.time.LocalTime.of(0, 0), null, null, null, true, null,
+                false, null, null, null, 1, false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("set together");
     }

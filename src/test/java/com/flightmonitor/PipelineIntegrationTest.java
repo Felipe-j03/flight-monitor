@@ -48,8 +48,12 @@ class PipelineIntegrationTest {
     @Autowired private MonitorQueryService queries;
     @Autowired private com.flightmonitor.infrastructure.web.MonitorController controller;
 
+    /**
+     * The classic round trip the fixture payload was recorded for. Runs do not depend on which trips
+     * are configured; the configured ones are checked by {@link #statusIsUsable()}.
+     */
     private TripConfig trip() {
-        return properties.enabledTrips().get(0);
+        return TestFixtures.trip();
     }
 
     @Test
@@ -257,14 +261,21 @@ class PipelineIntegrationTest {
 
         assertThat(status.trips())
                 .extracting(MonitorQueryService.TripStatus::id)
-                .containsExactly("tokyo-poa-2027", "poa-rio-2027");
+                .containsExactly("tokyo-rio-poa-2027", "rio-poa-2027-01-13", "poa-rio-2027");
 
         MonitorQueryService.TripStatus tokyo = status.trips().get(0);
         assertThat(tokyo.origins()).containsExactly("HND", "NRT");
-        assertThat(tokyo.currentBestPriceGbp()).isNotNull();
+        assertThat(tokyo.destinations()).containsExactly("GIG", "SDU");
         assertThat(tokyo.budgetCurrency()).isEqualTo("GBP");
+        assertThat(tokyo.budgetMax()).isEqualByComparingTo("2000");
 
-        MonitorQueryService.TripStatus rio = status.trips().get(1);
+        MonitorQueryService.TripStatus domestic = status.trips().get(1);
+        assertThat(domestic.origins()).containsExactly("GIG", "SDU");
+        assertThat(domestic.destinations()).containsExactly("POA");
+        assertThat(domestic.budgetCurrency()).isEqualTo("BRL");
+        assertThat(domestic.budgetMax()).isEqualByComparingTo("350");
+
+        MonitorQueryService.TripStatus rio = status.trips().get(2);
         assertThat(rio.origins()).containsExactly("POA");
         assertThat(rio.destinations()).containsExactly("GIG", "SDU");
         assertThat(rio.budgetCurrency()).isEqualTo("BRL");

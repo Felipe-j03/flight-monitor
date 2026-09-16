@@ -10,19 +10,27 @@ Tudo isso é configuração — nenhuma data, aeroporto ou país aparece no cód
 
 ### Viagens monitoradas
 
-O `application.yml` tem duas viagens, pesquisadas e guardadas separadamente:
+O `application.yml` tem três viagens, pesquisadas e guardadas separadamente. As duas primeiras
+formam o plano de Tóquio (dois bilhetes); a terceira é uma viagem à parte.
 
-| | Tóquio → Porto Alegre | Porto Alegre → Rio |
-|---|---|---|
-| Origem → destino | HND, NRT → POA (FLN, CWB, GRU alternativos) | POA → GIG **e** SDU, numa consulta só |
-| Datas | ida 09/01 ±2 dias, volta 16–21/01 | ida 11/01, volta 13/01 |
-| Horário | livre | ida até 11:59, preferindo 05:00; volta preferindo sair às 11:00 |
-| Orçamento | £1.300–£1.500 | **R$ 650–800**, convertido para GBP com a cotação do dia |
-| Chamadas SerpApi/dia | 4 | 3 (resolve o voo mais barato **e** o mais próximo das 05:00) |
+| | Tóquio ⇄ Brasil (multi-city) | Rio → Porto Alegre | Porto Alegre → Rio |
+|---|---|---|---|
+| id | `tokyo-rio-poa-2027` | `rio-poa-2027-01-13` | `poa-rio-2027` |
+| Trechos | 09/01 HND, NRT → GIG, SDU · 19/01 POA → HND, NRT | 13/01 GIG, SDU → POA, só ida | ida 11/01 POA → GIG, SDU · volta 13/01 |
+| Alternativa | volta saindo de GRU, GIG ou SDU, pesquisada a cada 2 dias; só alerta se £200+ mais barata | — | — |
+| Horário | livre | livre | ida até 11:59, preferindo 05:00; volta preferindo 11:00 |
+| Orçamento | abaixo de £1.700 excelente; **acima de £2.000 descartado** (nem resolve a volta) | até **R$ 350**, abaixo de R$ 250 excelente | **R$ 650–800** |
+| Chamadas SerpApi/dia | 2 (+2 a cada 2 dias) | 1 | 3 |
 
-As duas rodam uma vez por dia no GitHub Actions, ~7 chamadas/dia, dentro da cota grátis.
+Tudo roda uma vez por dia no GitHub Actions, ~210 chamadas/mês, dentro da cota grátis de 250.
+O preço do multi-city é o **total** do bilhete (os dois trechos). A Travelpayouts não cota multi-city
+e pula essa viagem. Um bilhete único de três trechos (Tóquio → Rio → POA → Tóquio) foi cotado em
+set/2026 a partir de £2.359, por isso o trecho Rio → POA é monitorado como bilhete separado.
+
 Para acrescentar outra viagem, basta outro bloco em `flight-monitor.trips` com `id` único; os campos
-de horário, `budget-currency`, `combine-destinations` e `max-options-per-search` são opcionais.
+de horário, `budget-currency`, `combine-origins`, `combine-destinations`, `max-options-per-search`,
+`return-origin-airports` (open jaw), `alternative-return-origins` e `discard-above-budget` são opcionais;
+sem `return-window-*` a viagem é só ida.
 
 ---
 

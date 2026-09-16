@@ -208,7 +208,7 @@ public class SearchOrchestrator {
             // Read after each save, not once up front: an offer stored earlier in this same run
             // may itself be the new primary-airport benchmark.
             BigDecimal bestPrimary =
-                    offers.findBestPriceForDestinations(trip.id(), trip.primaryDestinations());
+                    offers.findBestPrimaryPrice(trip.id());
 
             decider.decide(best, stored.change(), stored.entity().lastAlertedAt,
                             OffsetDateTime.now(clock), bestPrimary)

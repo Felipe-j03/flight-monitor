@@ -52,6 +52,17 @@ public class FlightOfferEntity {
     @Column(name = "return_arrival_at")
     public OffsetDateTime returnArrivalAt;
 
+    /** Open jaw: where the return leg actually leaves from and lands. */
+    @Column(name = "return_origin_airport", length = 4)
+    public String returnOriginAirport;
+
+    @Column(name = "return_destination_airport", length = 4)
+    public String returnDestinationAirport;
+
+    /** Used an alternative airport; alerts only if clearly cheaper than the best primary offer. */
+    @Column(nullable = false)
+    public boolean alternative;
+
     // Calendar values as printed on the ticket, in each airport's own local time. Postgres returns
     // timestamptz in UTC, which loses the offset and shifts the displayed date; these carry what a
     // human should read. The instants above stay the source of truth for every comparison.
