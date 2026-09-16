@@ -71,7 +71,8 @@ class SerpApiOpenJawQueryTest {
             """;
 
     private static final String SECOND_LEG = """
-            {"best_flights": [
+            {"search_metadata": {"google_flights_url": "https://www.google.com/travel/flights?hl=en&gl=us&curr=GBP&tfs=SELECTED&tfu=EgIIAQ"},
+             "best_flights": [
               {"flights": [{"departure_airport": {"id": "POA", "time": "2027-01-19 06:00"},
                             "arrival_airport": {"id": "GRU", "time": "2027-01-19 07:40"},
                             "duration": 100, "airline": "Gol", "flight_number": "G3 1300"},
@@ -178,8 +179,20 @@ class SerpApiOpenJawQueryTest {
             assertThat(itinerary.destinationAirport()).isEqualTo("GIG");
             assertThat(itinerary.inbound().originAirport()).isEqualTo("POA");
             assertThat(itinerary.price().gbpAmount()).isEqualByComparingTo("1608");
+            assertThat(itinerary.searchUrl())
+                    .as("the official Google Flights link, with the outbound already selected")
+                    .isEqualTo("https://www.google.com/travel/flights?hl=pt-BR&gl=br&curr=GBP&tfs=SELECTED&tfu=EgIIAQ");
         });
         assertThat(requests()).as("one search plus one resolution").hasSize(2);
+    }
+
+    @Test
+    @DisplayName("falls back to a text search link only when SerpApi reports no official one")
+    void fallsBackWithoutOfficialLink() throws Exception {
+        String link = SerpApiGoogleFlightsProvider.officialUrl(
+                new ObjectMapper().readTree("{}"), tokyoQuery());
+
+        assertThat(link).startsWith("https://www.google.com/travel/flights?q=");
     }
 
     @Test

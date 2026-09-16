@@ -142,7 +142,8 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
         if (!query.isRoundTrip()) {
             List<Itinerary> oneWays = new ArrayList<>();
             for (ParsedOption option : outboundOptions) {
-                buildItinerary(query, option, null, option).ifPresent(oneWays::add);
+                buildItinerary(query, option, null, option, officialUrl(outboundResponse, query))
+                        .ifPresent(oneWays::add);
             }
             return ProviderResult.success(CODE, query, oneWays, elapsedMillis(startedAt));
         }
@@ -190,9 +191,13 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                         CODE, query.describe(), returnError.get());
                 continue;
             }
+            // The second call's link has this outbound already selected, so it lands one click away
+            // from the fare instead of on a fresh search.
+            String link = officialUrl(returnResponse, query);
             for (ParsedOption combined : parser.parseOptions(returnResponse, query.currency())) {
                 ParsedOption inbound = stripOutboundPrefix(combined, outbound);
-                buildItinerary(query, outbound, inbound, combined).ifPresent(itineraries::add);
+                buildItinerary(query, outbound, inbound, combined, link)
+                        .ifPresent(itineraries::add);
             }
         }
 
@@ -228,7 +233,11 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
     }
 
     private Optional<Itinerary> buildItinerary(
-            SearchQuery query, ParsedOption outbound, ParsedOption inbound, ParsedOption priced) {
+            SearchQuery query,
+            ParsedOption outbound,
+            ParsedOption inbound,
+            ParsedOption priced,
+            String searchUrl) {
         Money price = priced.price();
         Optional<PriceQuote> quote = currency.toGbp(price);
         if (quote.isEmpty()) {
@@ -257,7 +266,7 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
                 .baggage(priced.baggage())
                 .fareClass(priced.travelClass())
                 .bookingUrl(null)
-                .searchUrl(googleFlightsSearchUrl(query))
+                .searchUrl(searchUrl)
                 .detailLevel(RouteDetailLevel.FULL_ITINERARY)
                 .build());
     }
@@ -401,6 +410,21 @@ public class SerpApiGoogleFlightsProvider extends AbstractHttpFlightProvider {
             case "FIRST" -> 4;
             default -> 1;
         };
+    }
+
+    /**
+     * The Google Flights link SerpApi reports for the exact search it ran
+     * ({@code search_metadata.google_flights_url}). It carries the search encoded the way Google
+     * itself does, so multi-city trips and several airports per leg open correctly — which a
+     * hand-built text query does not. Falls back to that text query only if the field is missing.
+     */
+    static String officialUrl(JsonNode response, SearchQuery query) {
+        JsonNode url = response == null ? null : response.path("search_metadata").path("google_flights_url");
+        if (url == null || !url.isTextual() || !url.asText().startsWith("https://")) {
+            return googleFlightsSearchUrl(query);
+        }
+        // Same search, shown in Portuguese for a Brazilian user; the currency is left as queried.
+        return url.asText().replace("hl=en&", "hl=pt-BR&").replace("gl=us&", "gl=br&");
     }
 
     /** A search URL, not an offer URL — labelled as such everywhere it is shown. */

@@ -251,8 +251,8 @@ public class AlertMessageFormatter {
             line.append("\n🔗 <a href=\"").append(escape(bookingUrl)).append("\">Ver passagem</a>");
         } else if (searchUrl != null) {
             line.append("\n🔗 <a href=\"").append(escape(searchUrl))
-                    .append("\">Abrir busca no Google Flights</a>")
-                    .append("\n<i>(link de busca, não de uma tarifa específica)</i>");
+                    .append("\">Abrir no Google Flights</a>")
+                    .append("\n<i>(busca oficial do Google com as mesmas datas; confira o preço lá)</i>");
         } else {
             line.append("\n🔗 Sem link direto disponível nesta fonte");
         }
